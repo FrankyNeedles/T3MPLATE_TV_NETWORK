@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Mario",
+    "game_id": "super_mario_world",
+    "sprite_bank": 29,
+    "sprite_offset": "$8000"
+  },
+  {
+    "name": "Luigi",
+    "game_id": "super_mario_world",
+    "sprite_bank": 29,
+    "sprite_offset": "$A000"
+  },
+  {
+    "name": "Bowser",
+    "game_id": "super_mario_world",
+    "sprite_bank": 31,
+    "sprite_offset": "$2000"
+  }
+]

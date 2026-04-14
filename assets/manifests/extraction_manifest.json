@@ -1,0 +1,71 @@
+{
+  "games": {
+    "super_mario_world": {
+      "sprites": {
+        "mario": {
+          "path": "assets\\authentic_sprites\\super_mario_world_mario.png",
+          "bank": 0,
+          "offset": "0x100",
+          "bpp": 2,
+          "size": "16x16",
+          "frames": 8,
+          "tcrf_verified": true
+        },
+        "luigi": {
+          "path": "assets\\authentic_sprites\\super_mario_world_luigi.png",
+          "bank": 0,
+          "offset": "0x200",
+          "bpp": 2,
+          "size": "16x16",
+          "frames": 8,
+          "tcrf_verified": true
+        },
+        "yoshi": {
+          "path": "assets\\authentic_sprites\\super_mario_world_yoshi.png",
+          "bank": 0,
+          "offset": "0x300",
+          "bpp": 2,
+          "size": "16x32",
+          "frames": 6,
+          "tcrf_verified": true
+        },
+        "bowser": {
+          "path": "assets\\authentic_sprites\\super_mario_world_bowser.png",
+          "bank": 0,
+          "offset": "0x400",
+          "bpp": 4,
+          "size": "32x32",
+          "frames": 4,
+          "tcrf_verified": true
+        }
+      },
+      "audio": {
+        "jump_sfx": {
+          "path": "assets\\audio\\super_mario_world_jump_sfx.wav",
+          "offset": "0x500",
+          "type": "brr",
+          "loop": false,
+          "length": 1364,
+          "sample_rate": 32000
+        },
+        "coin": {
+          "path": "assets\\audio\\super_mario_world_coin.wav",
+          "offset": "0x600",
+          "type": "brr",
+          "loop": false,
+          "length": 1364,
+          "sample_rate": 32000
+        },
+        "theme": {
+          "path": "assets\\audio\\super_mario_world_theme.spc",
+          "offset": "0x700",
+          "type": "spc",
+          "loop": true,
+          "length": 4096
+        }
+      }
+    }
+  },
+  "total_sprites": 4,
+  "total_audio": 3
+}

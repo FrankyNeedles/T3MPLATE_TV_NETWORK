@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "games": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "sprites": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "path": {"type": "string"},
+                "bank": {"type": "integer"},
+                "offset": {"type": "string"},
+                "bpp": {"type": "integer"},
+                "size": {"type": "string"},
+                "frames": {"type": "integer"},
+                "tcrf_verified": {"type": "boolean"}
+              },
+              "required": ["path", "bank", "offset", "bpp", "size", "frames"]
+            }
+          },
+          "audio": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "path": {"type": "string"},
+                "offset": {"type": "string"},
+                "type": {"type": "string"},
+                "loop": {"type": "boolean"},
+                "length": {"type": "integer"}
+              },
+              "required": ["path", "offset", "type", "length"]
+            }
+          }
+        },
+        "required": ["sprites", "audio"]
+      }
+    },
+    "total_sprites": {"type": "integer", "minimum": 0},
+    "total_audio": {"type": "integer", "minimum": 0}
+  },
+  "required": ["games", "total_sprites", "total_audio"]
+}

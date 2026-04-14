@@ -1,0 +1,32 @@
+{
+  "game_id": "super_mario_world",
+  "sprites": {
+    "mario": {
+      "bank": 29,
+      "offset": 32768
+    },
+    "peach": {
+      "bank": 30,
+      "offset": 36864
+    },
+    "yoshi": {
+      "bank": 31,
+      "offset": 40960
+    },
+    "bowser": {
+      "bank": 32,
+      "offset": 45056
+    }
+  },
+  "audio": {
+    "intro": {
+      "brr_offset": 1962880
+    },
+    "jump": {
+      "brr_offset": 1963008
+    },
+    "overworld": {
+      "brr_offset": 1963264
+    }
+  }
+}

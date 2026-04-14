@@ -1,0 +1,289 @@
+{
+  "super_mario_world": {
+    "url": "https://tcrf.net/Super_Mario_World_(SNES)",
+    "offsets": [],
+    "sprite_banks": {
+      "sprite0": {
+        "bank": 0,
+        "offset": "0x00000"
+      },
+      "sprite1": {
+        "bank": 1,
+        "offset": "0x00000"
+      },
+      "sprite2": {
+        "bank": 2,
+        "offset": "0x00000"
+      },
+      "sprite3": {
+        "bank": 3,
+        "offset": "0x00000"
+      },
+      "sprite4": {
+        "bank": 4,
+        "offset": "0x00000"
+      }
+    },
+    "audio_offsets": {
+      "audio0": {
+        "type": "brr",
+        "offset": "0x00000"
+      },
+      "audio1": {
+        "type": "spc",
+        "offset": "0x10000"
+      },
+      "audio2": {
+        "type": "brr",
+        "offset": "0x20000"
+      }
+    },
+    "scraped_at": "2026-04-14T09:34:36.003682"
+  },
+  "chrono_trigger": {
+    "url": "https://tcrf.net/Chrono_Trigger_(SNES)",
+    "offsets": [],
+    "sprite_banks": {
+      "sprite0": {
+        "bank": 0,
+        "offset": "0x00000"
+      },
+      "sprite1": {
+        "bank": 1,
+        "offset": "0x00000"
+      },
+      "sprite2": {
+        "bank": 2,
+        "offset": "0x00000"
+      },
+      "sprite3": {
+        "bank": 3,
+        "offset": "0x00000"
+      },
+      "sprite4": {
+        "bank": 4,
+        "offset": "0x00000"
+      }
+    },
+    "audio_offsets": {
+      "audio0": {
+        "type": "brr",
+        "offset": "0x00000"
+      },
+      "audio1": {
+        "type": "spc",
+        "offset": "0x10000"
+      },
+      "audio2": {
+        "type": "brr",
+        "offset": "0x20000"
+      }
+    },
+    "scraped_at": "2026-04-14T09:34:36.502394"
+  },
+  "illusion_of_gaia": {
+    "url": "https://tcrf.net/Illusion_of_Gaia_(SNES)",
+    "offsets": [],
+    "sprite_banks": {
+      "sprite0": {
+        "bank": 0,
+        "offset": "0x00000"
+      },
+      "sprite1": {
+        "bank": 1,
+        "offset": "0x00000"
+      },
+      "sprite2": {
+        "bank": 2,
+        "offset": "0x00000"
+      },
+      "sprite3": {
+        "bank": 3,
+        "offset": "0x00000"
+      },
+      "sprite4": {
+        "bank": 4,
+        "offset": "0x00000"
+      }
+    },
+    "audio_offsets": {
+      "audio0": {
+        "type": "brr",
+        "offset": "0x00000"
+      },
+      "audio1": {
+        "type": "spc",
+        "offset": "0x10000"
+      },
+      "audio2": {
+        "type": "brr",
+        "offset": "0x20000"
+      }
+    },
+    "scraped_at": "2026-04-14T09:34:37.001026"
+  },
+  "super_metroid": {
+    "url": "https://tcrf.net/Super_Metroid_(SNES)",
+    "offsets": [],
+    "sprite_banks": {
+      "sprite0": {
+        "bank": 0,
+        "offset": "0x00000"
+      },
+      "sprite1": {
+        "bank": 1,
+        "offset": "0x00000"
+      },
+      "sprite2": {
+        "bank": 2,
+        "offset": "0x00000"
+      },
+      "sprite3": {
+        "bank": 3,
+        "offset": "0x00000"
+      },
+      "sprite4": {
+        "bank": 4,
+        "offset": "0x00000"
+      }
+    },
+    "audio_offsets": {
+      "audio0": {
+        "type": "brr",
+        "offset": "0x00000"
+      },
+      "audio1": {
+        "type": "spc",
+        "offset": "0x10000"
+      },
+      "audio2": {
+        "type": "brr",
+        "offset": "0x20000"
+      }
+    },
+    "scraped_at": "2026-04-14T09:34:37.504735"
+  },
+  "the_legend_of_zelda_a_link_to_the_past": {
+    "url": "https://tcrf.net/The_Legend_of_Zelda:_A_Link_to_the_Past_(SNES)",
+    "offsets": [],
+    "sprite_banks": {
+      "sprite0": {
+        "bank": 0,
+        "offset": "0x00000"
+      },
+      "sprite1": {
+        "bank": 1,
+        "offset": "0x00000"
+      },
+      "sprite2": {
+        "bank": 2,
+        "offset": "0x00000"
+      },
+      "sprite3": {
+        "bank": 3,
+        "offset": "0x00000"
+      },
+      "sprite4": {
+        "bank": 4,
+        "offset": "0x00000"
+      }
+    },
+    "audio_offsets": {
+      "audio0": {
+        "type": "brr",
+        "offset": "0x00000"
+      },
+      "audio1": {
+        "type": "spc",
+        "offset": "0x10000"
+      },
+      "audio2": {
+        "type": "brr",
+        "offset": "0x20000"
+      }
+    },
+    "scraped_at": "2026-04-14T09:34:38.015681"
+  },
+  "street_fighter_ii_the_world_warrior": {
+    "url": "https://tcrf.net/Street_Fighter_II_(SNES)",
+    "offsets": [],
+    "sprite_banks": {
+      "sprite0": {
+        "bank": 0,
+        "offset": "0x00000"
+      },
+      "sprite1": {
+        "bank": 1,
+        "offset": "0x00000"
+      },
+      "sprite2": {
+        "bank": 2,
+        "offset": "0x00000"
+      },
+      "sprite3": {
+        "bank": 3,
+        "offset": "0x00000"
+      },
+      "sprite4": {
+        "bank": 4,
+        "offset": "0x00000"
+      }
+    },
+    "audio_offsets": {
+      "audio0": {
+        "type": "brr",
+        "offset": "0x00000"
+      },
+      "audio1": {
+        "type": "spc",
+        "offset": "0x10000"
+      },
+      "audio2": {
+        "type": "brr",
+        "offset": "0x20000"
+      }
+    },
+    "scraped_at": "2026-04-14T09:34:38.515820"
+  },
+  "earthbound": {
+    "url": "https://tcrf.net/EarthBound_(SNES)",
+    "offsets": [],
+    "sprite_banks": {
+      "sprite0": {
+        "bank": 0,
+        "offset": "0x00000"
+      },
+      "sprite1": {
+        "bank": 1,
+        "offset": "0x00000"
+      },
+      "sprite2": {
+        "bank": 2,
+        "offset": "0x00000"
+      },
+      "sprite3": {
+        "bank": 3,
+        "offset": "0x00000"
+      },
+      "sprite4": {
+        "bank": 4,
+        "offset": "0x00000"
+      }
+    },
+    "audio_offsets": {
+      "audio0": {
+        "type": "brr",
+        "offset": "0x00000"
+      },
+      "audio1": {
+        "type": "spc",
+        "offset": "0x10000"
+      },
+      "audio2": {
+        "type": "brr",
+        "offset": "0x20000"
+      }
+    },
+    "scraped_at": "2026-04-14T09:34:39.022734"
+  }
+}

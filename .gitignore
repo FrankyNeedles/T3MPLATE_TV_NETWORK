@@ -1,0 +1,48 @@
+# Standard ignore for Python/SNES project
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtualenvs
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ROMs and large assets (git lfs or ignore)
+roms/
+assets/large/
+*.rom
+*.sfc
+*.smc
+
+# Logs and temp
+*.log
+tmp/
+.DS_Store

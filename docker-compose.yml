@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - DEV_MODE=true
+
+  emu:
+    image: libretro/retroarch:latest  # Lutro core
+    volumes:
+      - ./engine:/romfs
+      - ./assets:/assets
+    command: ["-L", "cores/lutro_libretro.dll", "/romfs/main.lua"]
+    ports:
+      - "8765:5544"  # Lutro stream port

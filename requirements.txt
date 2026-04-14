@@ -1,0 +1,4 @@
+# pyaudio==0.2.14  # Not compatible with Python 3.14
+sounddevice
+soundfile
+pygame==2.6.1  # Attempt install for Python 3.14
