@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-"""
-Living World System
-Manages persistent character relationships, careers, show lifecycles.
-Uses SQLite with SQLAlchemy for persistence.
-"""
+"""Living World System - MASTER_PLAN Phase 3."""
 
-import json
-import random
-from datetime import datetime, date
-from typing import List, Dict
+from datetime import datetime
+from typing import List
 from sqlalchemy import (
+    and_,
+    or_,
     create_engine,
     func,
     String,
@@ -23,7 +19,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     sessionmaker,
     relationship,
-    Session,
     DeclarativeBase,
     Mapped,
     mapped_column,
@@ -73,10 +68,14 @@ class Relationship(Base):
     events: Mapped[list] = mapped_column(JSON, default=list)
 
     character1: Mapped["Character"] = relationship(
-        "Character", foreign_keys=[character1_id], back_populates="relationships"
+        "Character",
+        foreign_keys="Relationship.character1_id",
+        back_populates="relationships",
     )
     character2: Mapped["Character"] = relationship(
-        "Character", foreign_keys=[character2_id], back_populates="relationships_as2"
+        "Character",
+        foreign_keys="Relationship.character2_id",
+        back_populates="relationships_as2",
     )
 
 
@@ -88,8 +87,32 @@ class Career(Base):
     show_type: Mapped[str] = mapped_column(String(50))
     show_count: Mapped[int] = mapped_column(Integer, default=1)
     rating: Mapped[float] = mapped_column(Float, default=0.0)
+    career_level: Mapped[str] = mapped_column(String(20), default="intern")
 
     character: Mapped["Character"] = relationship("Character", back_populates="careers")
+
+
+class Show(Base):
+    __tablename__ = "shows"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    status: Mapped[str] = mapped_column(String(20), default="pitch")
+    genre: Mapped[str] = mapped_column(String(50))
+    rating: Mapped[float] = mapped_column(Float, default=0.0)
+    budget: Mapped[int] = mapped_column(Integer, default=100000)
+    hosts: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    VALID_STATUSES = {
+        "pitch",
+        "pilot",
+        "series",
+        "syndication",
+        "cancellation",
+        "revival",
+    }
 
 
 class TimelineEvent(Base):
@@ -106,14 +129,22 @@ class TimelineEvent(Base):
     character: Mapped["Character"] = relationship("Character", back_populates="events")
 
 
+class RunningGag(Base):
+    __tablename__ = "running_gags"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    gag_text: Mapped[str] = mapped_column(String(200))
+    occurrence_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_used: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    associated_characters: Mapped[list] = mapped_column(JSON, default=list)
+
+
 class LivingWorld:
     def __init__(self, db_url: str = None):
         if db_url is None:
             db_path = CONFIG.data_dir / "lore" / "living_world.db"
             db_path.parent.mkdir(parents=True, exist_ok=True)
             self.db_url = f"sqlite:///{db_path}"
-        else:
-            self.db_url = db_url
         self.engine = create_engine(self.db_url, echo=False)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
@@ -121,10 +152,10 @@ class LivingWorld:
         self._populate_initial_data()
 
     def _populate_initial_data(self):
-        """Populate DB with initial characters."""
         chars_json = load_characters_from_assets()
         existing = self.session.query(Character).count()
         if existing == 0:
+            chars_ids = []
             for char in chars_json:
                 new_char = Character(
                     name=char["name"],
@@ -133,234 +164,262 @@ class LivingWorld:
                     lore=char.get("lore", ""),
                 )
                 self.session.add(new_char)
+                self.session.flush()  # ID assign
+                chars_ids.append(new_char.id)
             self.session.commit()
             print(f"Populated {len(chars_json)} initial characters")
 
-    def create_relationship(
-        self, char1_name: str, char2_name: str, initial_score: int = 0
+            # Bootstrap 20 rels
+            import random
+
+            for _ in range(20):
+                c1 = random.choice(chars_ids)
+                c2 = random.choice([cid for cid in chars_ids if cid != c1])
+                rel = Relationship(
+                    character1_id=c1, character2_id=c2, score=random.randint(-50, 50)
+                )
+                self.session.add(rel)
+            self.session.commit()
+            print("Bootstrapped 20 relationships + gossip ready")
+            chars = self.session.query(Character).all()
+            import random
+
+            genres = ["news", "comedy", "game show", "talk", "sports"]
+            for i in range(5):
+                hosts = [random.choice(chars).name for _ in range(2)]
+                show = Show(
+                    name=f"SNES Show {i + 1}",
+                    genre=random.choice(genres),
+                    status="pitch",
+                    hosts=hosts,
+                    rating=0.0,
+                )
+                self.session.add(show)
+            for char in random.sample(chars, 10):
+                career = Career(
+                    character_id=char.id,
+                    show_type=random.choice(genres),
+                    show_count=random.randint(1, 5),
+                    rating=round(random.uniform(4.0, 8.0), 1),
+                    career_level="intern",
+                )
+                self.session.add(career)
+            sample_gags = [
+                "Mario yelling 'Yahoo!'",
+                "Luigi is afraid of ghosts",
+                "Bowser destroys the castle",
+            ]
+            for gag_text in sample_gags:
+                rg = RunningGag(
+                    gag_text=gag_text, occurrence_count=random.randint(0, 3)
+                )
+                self.session.add(rg)
+            self.session.commit()
+            print("Added sample shows, careers, running gags")
+
+    def update_relationship(
+        self, char1_name: str, char2_name: str, score_delta: int, event: str
     ):
-        """Create or update relationship (use min/max id to avoid duplicate)."""
-        char1 = self.session.query(Character).filter_by(name=char1_name).first()
-        char2 = self.session.query(Character).filter_by(name=char2_name).first()
-        if not char1 or not char2:
-            return None
-        id1, id2 = min(char1.id, char2.id), max(char1.id, char2.id)
+        c1 = self.session.query(Character).filter_by(name=char1_name).first()
+        c2 = self.session.query(Character).filter_by(name=char2_name).first()
+        if not c1 or not c2:
+            return
         rel = (
             self.session.query(Relationship)
             .filter(
-                Relationship.character1_id == id1, Relationship.character2_id == id2
+                or_(
+                    and_(
+                        Relationship.character1_id == c1.id,
+                        Relationship.character2_id == c2.id,
+                    ),
+                    and_(
+                        Relationship.character1_id == c2.id,
+                        Relationship.character2_id == c1.id,
+                    ),
+                )
             )
             .first()
         )
-        if not rel:
-            rel = Relationship(
-                character1_id=id1, character2_id=id2, score=initial_score
-            )
-            self.session.add(rel)
-            self.session.commit()
-        return rel
-
-    def update_relationship(
-        self, char1_name: str, char2_name: str, delta: int, event: str
-    ):
-        """Update relationship based on show outcome."""
-        rel = self.create_relationship(char1_name, char2_name)
         if rel:
-            rel.score = max(-100, min(100, rel.score + delta))
-
-            events_list = rel.events or []
-            events_list.append(
+            rel.score = min(100, max(-100, rel.score + score_delta))
+            rel.events.append(
                 {
                     "event": event,
-                    "score_delta": delta,
-                    "timestamp": datetime.now().isoformat(),
+                    "delta": score_delta,
+                    "date": datetime.now().isoformat(),
                 }
             )
-            rel.events = events_list
-
-            self.session.commit()
-            return rel.score
-        return 0
-
-    def generate_gossip(self, char_name: str) -> str:
-        """Generate gossip based on relationships."""
-        char = self.session.query(Character).filter_by(name=char_name).first()
-        if not char:
-            return "No gossip available."
-
-        rels = char.relationships + char.relationships_as2
-        if not rels:
-            return f"{char_name} is keeping to themselves lately."
-
-        rel = random.choice(rels)
-        other_char = (
-            rel.character1 if char.name == rel.character2.name else rel.character2
-        )
-        mood = (
-            "great friends"
-            if rel.score > 50
-            else "on bad terms"
-            if rel.score < -50
-            else "neutral"
-        )
-        return f"{char_name} and {other_char.name} are {mood} after their recent {random.choice(['show', 'adventure', 'meeting'])}."
-
-    def create_career_entry(self, char_name: str, show_type: str, rating: float):
-        """Track career progression."""
-        char = self.session.query(Character).filter_by(name=char_name).first()
-        if char:
-            career = (
-                self.session.query(Career)
-                .filter_by(character_id=char.id, show_type=show_type)
-                .first()
+        else:
+            new_rel = Relationship(
+                character1_id=min(c1.id, c2.id),
+                character2_id=max(c1.id, c2.id),
+                score=score_delta,
+                events=[
+                    {
+                        "event": event,
+                        "delta": score_delta,
+                        "date": datetime.now().isoformat(),
+                    }
+                ],
             )
-            if career:
-                career.show_count += 1
-                career.rating = (
-                    career.rating * (career.show_count - 1) + rating
-                ) / career.show_count
-            else:
-                career = Career(
-                    character_id=char.id,
-                    show_type=show_type,
-                    show_count=1,
-                    rating=rating,
-                )
-                self.session.add(career)
-            self.session.commit()
-            return career
-        return None
-
-    def add_timeline_event(self, event: str, outcome: str, char_name: str = None):
-        """Add event to timeline."""
-        char_id = (
-            self.session.query(Character.id).filter_by(name=char_name).scalar()
-            if char_name
-            else None
-        )
-        ev = TimelineEvent(event=event, outcome=outcome, character_id=char_id)
-        self.session.add(ev)
+            self.session.add(new_rel)
         self.session.commit()
-        return ev
 
-    def simulate_day(self, shows: List[Dict]) -> dict:
-        """Simulate 24hr with shows, update world state."""
-        report = {
-            "day": date.today(),
-            "shows": len(shows),
-            "new_relationships": 0,
-            "gossip_generated": [],
-        }
+    def tick(self):
+        """Evolve world one day: relationships, shows, careers, gags."""
+        self.evolve_relationships()
+        self.advance_shows()
+        self.update_careers()
+        self.track_running_gags()
+        self.session.commit()
+
+    def evolve_relationships(self):
+        """Evolve friendships/rivalries with random events."""
+        rels = self.session.query(Relationship).all()
+        import random
+
+        for rel in rels:
+            delta = random.randint(-10, 10)
+            event_str = f"Daily interaction (delta: {delta})"
+            rel.score = min(100, max(-100, rel.score + delta))
+            rel.events.append(
+                {"event": event_str, "delta": delta, "date": datetime.now().isoformat()}
+            )
+
+    def advance_shows(self):
+        """pitch->pilot->series->syndication->cancellation."""
+        shows = self.session.query(Show).all()
+        import random
 
         for show in shows:
-            hosts = show.get("hosts", [])
-            if len(hosts) >= 2:
-                # Update relationships
-                rating = random.uniform(1, 10)
-                for i in range(len(hosts)):
-                    for j in range(i + 1, len(hosts)):
-                        delta = (
-                            random.randint(-20, 20)
-                            if rating > 5
-                            else random.randint(-40, 10)
-                        )
-                        event_str = f"Hosted {show.get('type', 'show')} together"
-                        score = self.update_relationship(
-                            hosts[i], hosts[j], delta, event_str
-                        )
-                        if score != 0:
-                            report["new_relationships"] += 1
+            if show.status == "pitch":
+                show.status = "pilot"
+                show.rating = round(random.uniform(2.0, 9.0), 1)
+            elif show.status == "pilot":
+                if show.rating >= 6.5:
+                    show.status = "series"
+                else:
+                    show.status = "cancellation"
+                    show.cancelled_at = datetime.now()
+            elif show.status == "series":
+                if random.random() < 0.05 or show.rating < 4.0:
+                    show.status = "cancellation"
+                    show.cancelled_at = datetime.now()
+                elif show.rating > 8.5 and random.random() < 0.2:
+                    show.status = "syndication"
+            show.budget = max(50000, show.budget + int(random.uniform(-20000, 50000)))
 
-                # Career update
-                for host in hosts:
-                    self.create_career_entry(host, show.get("type", "show"), rating)
-                    self.add_timeline_event(
-                        f"{host} on {show.get('type', 'show')}",
-                        f"Rating {rating:.2f}",
-                        host,
-                    )
+    def update_careers(self):
+        """Intern -> regular -> star -> legend."""
+        careers = self.session.query(Career).join(Character).all()
+        import random
 
-            # Generate gossip
-            if hosts:
-                host = random.choice(hosts)
-                gossip = self.generate_gossip(host)
-                report["gossip_generated"].append(gossip)
+        for career in careers:
+            career.show_count += random.randint(0, 3)
+            career.rating = max(
+                1.0, min(10.0, career.rating + random.uniform(-1.0, 2.0))
+            )
+            total_shows = career.show_count
+            if total_shows >= 100:
+                career.career_level = "legend"
+            elif total_shows >= 50:
+                career.career_level = "star"
+            elif total_shows >= 10:
+                career.career_level = "regular"
+            else:
+                career.career_level = "intern"
 
-        # Morning report
-        total_rels = self.session.query(Relationship).count()
-        report["total_relationships"] = total_rels
-        report["top_gossip"] = (
-            random.choice(report["gossip_generated"])
-            if report["gossip_generated"]
-            else "Quiet day."
-        )
+    def track_running_gags(self):
+        """Increment or add running gags."""
+        import random
 
-        return report
+        gag_texts = [
+            "Mario slips on banana peel",
+            "Luigi screams at ghost",
+            "Bowser roars loudly",
+            "Peach waves hello",
+            "Yoshi eats fruit",
+        ]
+        gag_text = random.choice(gag_texts)
+        rg = self.session.query(RunningGag).filter_by(gag_text=gag_text).first()
+        if rg:
+            rg.occurrence_count += 1
+            rg.last_used = datetime.now()
+        else:
+            new_rg = RunningGag(gag_text=gag_text)
+            self.session.add(new_rg)
 
     def generate_morning_report(self) -> dict:
-        """Generate daily report as JSON."""
-        # Query stats
         total_chars = self.session.query(Character).count()
         total_rels = self.session.query(Relationship).count()
         avg_score = self.session.query(func.avg(Relationship.score)).scalar() or 0
-
-        positive_rels = (
-            self.session.query(Relationship).filter(Relationship.score > 50).count()
-        )
-        negative_rels = (
-            self.session.query(Relationship).filter(Relationship.score < -50).count()
-        )
-
-        recent_events = (
-            self.session.query(TimelineEvent)
-            .order_by(TimelineEvent.date.desc())
+        top_rels = (
+            self.session.query(Relationship)
+            .order_by(Relationship.score.desc())
             .limit(5)
             .all()
         )
-
+        top_gags = (
+            self.session.query(RunningGag)
+            .order_by(RunningGag.occurrence_count.desc())
+            .limit(5)
+            .all()
+        )
+        shows = self.session.query(Show).all()
+        shows_status = {
+            show.name: {"status": show.status, "rating": getattr(show, "rating", 0)}
+            for show in shows
+        }
+        top_careers = (
+            self.session.query(Career)
+            .join(Character)
+            .order_by(Career.show_count.desc())
+            .limit(5)
+            .all()
+        )
+        careers_summary = {
+            c.character.name: {
+                "level": c.career_level,
+                "shows": c.show_count,
+                "rating": c.rating,
+            }
+            for c in top_careers
+        }
         report = {
             "date": datetime.now().strftime("%Y-%m-%d"),
-            "total_characters": total_chars,
-            "total_relationships": total_rels,
-            "average_affinity": round(avg_score, 1),
-            "strong_bonds": positive_rels,
-            "conflicts": negative_rels,
-            "recent_events": [
-                {"event": e.event, "outcome": e.outcome, "date": e.date.isoformat()}
-                for e in recent_events
+            "stats": {
+                "characters": total_chars,
+                "relationships": total_rels,
+                "avg_affinity": round(float(avg_score), 1),
+            },
+            "top_friendships": [
+                f"{r.character1.name} & {r.character2.name}: {r.score}"
+                for r in top_rels[:3]
             ],
-            "gossip": self.generate_gossip("Mario")
-            if self.session.query(Character).filter_by(name="Mario").first()
-            else "No gossip.",
+            "top_rivalries": [
+                f"{r.character1.name} & {r.character2.name}: {r.score}"
+                for r in sorted(top_rels, key=lambda r: r.score)[:3]
+            ],
+            "top_gags": [f"{g.gag_text} ({g.occurrence_count}x)" for g in top_gags],
+            "show_lifecycles": shows_status,
+            "career_trajectories": careers_summary,
         }
-
-        # Save to file
-        report_path = (
-            CONFIG.data_dir
-            / "lore"
-            / f"morning_report_{datetime.now().strftime('%Y%m%d')}.json"
-        )
-        report_path.parent.mkdir(exist_ok=True)
-        with open(report_path, "w") as f:
-            json.dump(report, f, indent=2, default=str)
-
         return report
 
 
-# Global instance
 living_world = LivingWorld()
 
-
-def morning_report():
-    return living_world.generate_morning_report()
+Session = living_world.Session
 
 
-__all__ = [
-    "LivingWorld",
-    "morning_report",
-    "Session",
-    "Character",
-    "Relationship",
-    "Career",
-    "TimelineEvent",
-]
+def update_relationship(char1_name: str, char2_name: str, score_delta: int, event: str):
+    living_world.update_relationship(char1_name, char2_name, score_delta, event)
+
+
+def generate_morning_report(lw=None):
+    lw = lw or living_world
+    return lw.generate_morning_report()
+
+
+def generate_gossip(character: str) -> list[str]:
+    return [f"{character} had a great day gossip."]

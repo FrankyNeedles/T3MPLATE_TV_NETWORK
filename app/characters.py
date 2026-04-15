@@ -6,12 +6,12 @@ Integrates with living world for relationships/careers.
 """
 
 import json
-from typing import List, Dict
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Integer, ForeignKey
+from sqlalchemy import String, Integer, Float, ForeignKey
 from sqlalchemy.orm import relationship
 
 from .config import CONFIG
+from extractors.top_50_snes_games import TOP_50_SNES_GAMES
 
 
 class Base(DeclarativeBase):
@@ -26,10 +26,10 @@ class Character(Base):
     game_id: Mapped[str] = mapped_column(String(50), index=True)
     sprite_bank: Mapped[int] = mapped_column(Integer)
     sprite_offset: Mapped[str] = mapped_column(String(20))  # e.g., '$8000'
-    relationships: Mapped[List["Relationship"]] = relationship(
+    relationships: Mapped[list["Relationship"]] = relationship(
         back_populates="characters"
     )
-    careers: Mapped[List["Career"]] = relationship(back_populates="character")
+    careers: Mapped[list["Career"]] = relationship(back_populates="character")
 
     def __repr__(self) -> str:
         return f"<Character(name='{self.name}', game_id='{self.game_id}')>"
@@ -57,39 +57,37 @@ class Career(Base):
     character_id: Mapped[int] = mapped_column(Integer, ForeignKey("characters.id"))
     show_type: Mapped[str] = mapped_column(String(50))  # news, comedy, etc.
     show_count: Mapped[int] = mapped_column(Integer, default=0)
-    rating: Mapped[float] = mapped_column(Integer, default=5.0)  # 1-10
+    rating: Mapped[float] = mapped_column(Float, default=5.0)  # 1-10
     character: Mapped[Character] = relationship(back_populates="careers")
 
     def __repr__(self) -> str:
         return f"<Career(character={self.character_id}, type='{self.show_type}', count={self.show_count})>"
 
 
-def load_characters_from_assets() -> List[Dict]:
+def index_characters():
+    chars = load_characters_from_assets()
+    print(f"Indexed {len(chars)} characters")
+    return chars
+
+
+def load_characters_from_assets() -> list[dict]:
     """Load characters from JSON assets."""
-    char_path = CONFIG.assets_dir / "universe" / "characters.json"
+    char_path = CONFIG.data_dir / "snes_universe" / "characters.json"
     if not char_path.exists():
-        # Create sample
-        sample_chars = [
-            {
-                "name": "Mario",
-                "game_id": "super_mario_world",
-                "sprite_bank": 0x1D,
-                "sprite_offset": "$8000",
-            },
-            {
-                "name": "Luigi",
-                "game_id": "super_mario_world",
-                "sprite_bank": 0x1D,
-                "sprite_offset": "$A000",
-            },
-            {
-                "name": "Bowser",
-                "game_id": "super_mario_world",
-                "sprite_bank": 0x1F,
-                "sprite_offset": "$2000",
-            },
-            # Add 85 more...
-        ]
+        # Create sample 88 chars from top games
+        sample_chars = []
+        games = list(TOP_50_SNES_GAMES.keys())[:10]  # Sample games
+        chars_per_game = 8  # Approx 88 total
+        for g in games:
+            for i in range(chars_per_game):
+                sample_chars.append(
+                    {
+                        "name": f"{g}_char{i}",
+                        "game_id": g,
+                        "sprite_bank": 0x1D + i % 8,
+                        "sprite_offset": f"$8{i:03X}0",
+                    }
+                )
         char_path.parent.mkdir(parents=True, exist_ok=True)
         with open(char_path, "w") as f:
             json.dump(sample_chars, f, indent=2)
@@ -97,6 +95,12 @@ def load_characters_from_assets() -> List[Dict]:
 
     with open(char_path, "r") as f:
         return json.load(f)
+
+
+def index_characters():
+    chars = load_characters_from_assets()
+    print(f"Indexed {len(chars)} characters")
+    return chars
 
 
 if __name__ == "__main__":

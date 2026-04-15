@@ -5,7 +5,7 @@ WORKDIR /app
 COPY pyproject.toml poetry.lock* ./
 RUN pip install poetry && poetry install --no-dev --only=main
 
-FROM python:3.11-slim
+FROM python:3.11-slim\n\n# Install FFmpeg\nRUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

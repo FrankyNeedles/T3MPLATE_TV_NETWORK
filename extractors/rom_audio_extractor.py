@@ -5,9 +5,12 @@ Extracts SPC700 sequences and BRR samples from SNES ROMs.
 Enhanced with BRR decode.
 """
 
+import logging
 from pathlib import Path
 import struct
 import wave
+
+logger = logging.getLogger(__name__)
 
 
 class ROMAudioExtractor:
@@ -16,8 +19,11 @@ class ROMAudioExtractor:
         self.rom_data = self._load_rom()
 
     def _load_rom(self) -> bytes:
+        logger.info(f"Loading ROM from {self.rom_path}")
         with open(self.rom_path, "rb") as f:
-            return f.read()
+            data = f.read()
+        logger.info(f"ROM loaded: {len(data)} bytes")
+        return data
 
     def _brr_decode(self, raw_brr: bytes) -> list[int]:
         """Basic BRR decoder (snes9x-inspired stub)."""

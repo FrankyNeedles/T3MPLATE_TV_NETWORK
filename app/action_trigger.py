@@ -5,12 +5,12 @@ Executes Gary decisions using authentic assets (60fps sync).
 Validates against manifests before execution.
 """
 
-from typing import Dict, Any
 import json
 import time
-from .config import CONFIG
+from app.config import CONFIG
 import random
-import winsound
+import sounddevice as sd
+import soundfile as sf
 
 
 class ActionTrigger:
@@ -29,7 +29,7 @@ class ActionTrigger:
                 cache[game_id] = json.load(f)
         return cache
 
-    def validate_actions(self, actions: Dict[str, Any]) -> Dict[str, bool]:
+    def validate_actions(self, actions: dict[str, any]) -> dict[str, bool]:
         """Validate actions exist in assets."""
         validation = {"visual": False, "audio": False}
         if "visual" in actions:
@@ -48,7 +48,7 @@ class ActionTrigger:
 
         return validation
 
-    def execute_actions(self, actions: Dict[str, Any]):
+    def execute_actions(self, actions: dict[str, any]):
         """Execute validated actions."""
         validation = self.validate_actions(actions)
 
@@ -64,7 +64,7 @@ class ActionTrigger:
             time.sleep(0.1)
             self._execute_audio(actions["audio"])
 
-    def _execute_visual(self, visual: Dict):
+    def _execute_visual(self, visual: dict):
         """Render sprite from ROM data (placeholder)."""
         character = visual.get("character", "mario")
         game_id = visual.get("game_id", "super_mario_world")
@@ -73,11 +73,11 @@ class ActionTrigger:
         duration = visual.get("duration", 60)
 
         print(
-            f"🎮 Visual: {character} from {game_id} (bank {bank}, offset {offset}) for {duration} frames @60fps"
+            f"Visual: {character} from {game_id} (bank {bank}, offset {offset}) for {duration} frames @60fps"
         )
         # In prod: renderer.load_sprite(game_id, bank, offset); renderer.animate(duration)
 
-    def _execute_audio(self, audio: Dict):
+    def _execute_audio(self, audio: dict):
         """Play BRR/SPC."""
         track = audio.get("track", "intro")
         game_id = audio.get("game_id", "super_mario_world")
@@ -85,15 +85,26 @@ class ActionTrigger:
         loop = audio.get("loop", False)
 
         # Placeholder playback
-        duration = 1000 if loop else 500
-        winsound.Beep(440 + random.randint(0, 200), duration)
-        print(f"🔊 Audio: {track} from {game_id} (BRR {brr_offset}, loop={loop})")
+        coin_wav = self.audio_dir / "super_mario_world_coin.wav"
+        jump_wav = self.audio_dir / "super_mario_world_jump_sfx.wav"
+        wav_path = coin_wav if "coin" in track.lower() else jump_wav if "jump" in track.lower() else coin_wav
+        if wav_path.exists():
+            data, fs = sf.read(str(wav_path))
+            sd.play(data, fs)
+            sd.wait()
+            print(f"Played {wav_path.name}")
+        else:
+            duration = 1000 if loop else 500
+            import winsound
+            winsound.Beep(440 + random.randint(0, 200), duration)
+            print(f"Fallback beep for {track}")
+        print(f"Audio: {track} from {game_id} (BRR {brr_offset}, loop={loop})")
 
-    def execute_decision(self, decision: Dict):
+    def execute_decision(self, decision: dict):
         """Execute full Gary decision."""
         actions = decision.get("actions", {})
         self.execute_actions(actions)
-        print(f"✅ Executed decision for '{decision.get('show', 'unknown')}'")
+        print(f"Executed decision for '{decision.get('show', 'unknown')}'")
 
 
 # Global trigger

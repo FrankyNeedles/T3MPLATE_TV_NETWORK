@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, ConfigDict
 from pathlib import Path
 import os
 
@@ -7,12 +7,13 @@ import os
 class Config(BaseSettings):
     """Project configuration."""
 
-    project_name: str = "T3MPLATE_TV_NETWORK"
+    project_name: str = "T3MPLATE TV WORLD"
     project_root: Path = Path(__file__).parent.parent
 
     # Paths
     assets_dir: Path = project_root / "assets"
-    roms_dir: Path = assets_dir / "roms"
+    rom_source_dir: Path = project_root / "ROM_SOURCE"
+    roms_dir: Path = rom_source_dir  # Legacy alias
     data_dir: Path = project_root / "data"
     engine_dir: Path = project_root / "engine"
 
@@ -34,7 +35,14 @@ class Config(BaseSettings):
     frame_rate: int = 60
     audio_channels: int = 8
 
+    # Streaming/Emu
+    twitch_stream_key: str = Field(default="", env="TWITCH_STREAM_KEY")
+    retroarch_path: str = Field(
+        default="C:\\\\RetroArch-Win64\\\\retroarch.exe", env="RETROARCH_PATH"
+    )
+
     class Config:
+        model_config = ConfigDict(extra="ignore")
         env_file = ".env"
 
 

@@ -7,15 +7,32 @@ services:
       - "8080:8080"
     volumes:
       - .:/app
+      - ./ROM_SOURCE:/app/ROM_SOURCE
+      - ./DATA:/app/DATA
+      - ./OUTPUT:/app/OUTPUT
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - DEV_MODE=true
+      - TWITCH_STREAM_KEY=${TWITCH_STREAM_KEY}
 
   emu:
-    image: libretro/retroarch:latest  # Lutro core
+    image: libretro/retroarch:latest
     volumes:
       - ./engine:/romfs
       - ./assets:/assets
+      - ./ROM_SOURCE:/romfs/ROM_SOURCE
+      - ./DATA:/romfs/DATA
     command: ["-L", "cores/lutro_libretro.dll", "/romfs/main.lua"]
     ports:
-      - "8765:5544"  # Lutro stream port
+      - "8765:5544"
+
+  streamer:
+    build: .
+    depends_on:
+      - api
+      - emu
+    volumes:
+      - ./app:/app
+    environment:
+      - TWITCH_STREAM_KEY=${TWITCH_STREAM_KEY}
+    command: ["python", "-c", "from app.streamer import TwitchStreamer; s = TwitchStreamer(); print(s.start_stream_from_api()); import time; time.sleep(3600)"]

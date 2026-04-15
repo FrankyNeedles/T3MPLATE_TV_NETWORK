@@ -6,10 +6,13 @@ Enhanced with BeautifulSoup scraping for TCRF offsets.
 """
 
 import json
+import logging
 from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 from top_50_snes_games import TOP_50_SNES_GAMES
+
+logger = logging.getLogger(__name__)
 
 
 def load_manifest(manifest_path: Path) -> dict:
@@ -20,6 +23,7 @@ def load_manifest(manifest_path: Path) -> dict:
 
 def scrape_tcrf_offsets(url: str) -> list[str]:
     """Scrape TCRF URL for hex offsets."""
+    logger.info(f"Scraping TCRF offsets from {url}")
     try:
         resp = requests.get(url, timeout=10)
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -28,9 +32,10 @@ def scrape_tcrf_offsets(url: str) -> list[str]:
         for word in text.split():
             if word.startswith("0x") and len(word) < 12 and word[2:].isalnum():
                 hex_offsets.append(word)
+        logger.info(f"Found {len(hex_offsets)} offsets")
         return list(set(hex_offsets))
     except Exception as e:
-        print(f"Scrape error: {e}")
+        logger.error(f"Scrape error: {e}")
         return []
 
 

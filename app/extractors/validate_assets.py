@@ -7,14 +7,13 @@ Checks structure, required fields, and file existence.
 
 import json
 from pathlib import Path
-from typing import Dict, Any
 
 from ..config import CONFIG
 
 
 def validate_manifests(
     manifests_dir: Path = CONFIG.assets_dir / "manifests",
-) -> Dict[str, Any]:
+) -> dict[str, any]:
     """
     Validate all manifest files.
     Returns report with valid/invalid counts and details.

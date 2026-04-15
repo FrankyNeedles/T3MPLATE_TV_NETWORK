@@ -1,9 +1,8 @@
-from typing import Dict, List
 import random
 from datetime import datetime
 
 
-def get_twitch_metrics(channel: str = "t3mplate_tv") -> Dict:
+def get_twitch_metrics(channel: str = "t3mplate_tv") -> dict:
     """Fetch Twitch viewers/chat (mock for Gary)."""
     # Real: https://api.twitch.tv/helix/streams?user_login=t3mplate_tv
     return {
@@ -13,7 +12,7 @@ def get_twitch_metrics(channel: str = "t3mplate_tv") -> Dict:
     }
 
 
-def get_news_trends(top_n: int = 5) -> List[str]:
+def get_news_trends(top_n: int = 5) -> list[str]:
     """Fetch news headlines for topics (mock RSS)."""
     # Real: NewsAPI or RSS SNES/gaming
     return [
@@ -23,7 +22,7 @@ def get_news_trends(top_n: int = 5) -> List[str]:
     ]
 
 
-def get_twitch_webhook(event: str) -> Dict:
+def get_twitch_webhook(event: str) -> dict:
     """Webhook for real-time metrics."""
     return {"event": event, "timestamp": datetime.now().isoformat()}
 

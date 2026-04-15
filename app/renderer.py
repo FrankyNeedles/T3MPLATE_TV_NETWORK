@@ -1,126 +1,66 @@
-#!/usr/bin/env python3
-"""
-Renderer Engine
-Renders authentic SNES sprites from ROM offsets using Arcade.
-Supports 60fps sync, palettes, sprite limits (32 OAM).
-Lutro Lua integration for full emulation.
-"""
-
-import numpy as np
-from PIL import Image
-from typing import List
-import arcade
-import tempfile
-import os
-import time
-
-
-class AnimationWindow(arcade.Window):
-    def __init__(self, frames, duration_frames, pos, width=1280, height=720):
-        super().__init__(width, height, "T3MPLATE TV Renderer", resizable=False)
-        self.frames = frames
-        self.duration_frames = duration_frames
-        self.pos = pos
-        self.current_frame = 0
-        self.start_time = None
-        self.frame_time = 1 / 60
-        self.running_animation = True
-
-    def on_draw(self):
-        self.clear(arcade.color.BLACK)
-        if self.running_animation:
-            if self.start_time is None:
-                self.start_time = time.time()
-            elapsed = time.time() - self.start_time
-            self.current_frame = int(elapsed / self.frame_time)
-            if self.current_frame >= self.duration_frames:
-                self.running_animation = False
-                print(f"Animation complete: {self.duration_frames} frames")
-                self.close()
-                return
-            frame_texture = self.frames[self.current_frame % len(self.frames)]
-            frame_texture.draw(self.pos[0], self.pos[1], scale=4.0)  # Scale up
-        arcade.finish_render()
-
-    def on_close(self):
-        print("Renderer window closed")
-
-
-class BackgroundWindow(arcade.Window):
-    def __init__(self, tilemap, width=1280, height=720):
-        super().__init__(width, height, "Background Renderer", resizable=False)
-        self.tilemap = tilemap
-        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
-
-    def on_draw(self):
-        self.clear()
-        arcade.draw_text(
-            f"Rendered background: {self.tilemap}", 10, 10, arcade.color.WHITE, 20
-        )
-        arcade.finish_render()
-
-    def on_key_press(self, key, modifiers):
-        if key == arcade.key.ESCAPE:
-            self.close()
-
+import pygame
+import threading
+from pathlib import Path
+from typing import Dict, Any
 
 class Renderer:
     def __init__(self):
-        print("Renderer initialized with Arcade")
-        self.sprite_cache = {}
+        pygame.init()
+        self.screen = pygame.display.set_mode((1280, 720))
+        pygame.display.set_caption("T3MPLATE TV Network - Live Broadcast")
+        self.clock = pygame.time.Clock()
         self.running = True
+        self.sprite_cache = {}
+        self.status: Dict[str, Any] = {}
+        self.screen_loop_thread = threading.Thread(target=self._screen_loop, daemon=True)
+        self.screen_loop_thread.start()
+        print("T3MPLATE TV Renderer Ready: 1280x720 60fps w/ authentic sprites + CRT")
 
-    def load_sprite(
-        self,
-        game_id: str,
-        bank: int,
-        offset: int,
-        palette: List[int] = None,
-        frames: int = 1,
-    ):
-        """Load sprite from ROM offset (placeholder PNG fallback)."""
-        # In prod: ROM bank extraction → PIL decode → Arcade texture
-        key = f"{game_id}_{bank}_{offset}"
-        if key not in self.sprite_cache:
-            # Dummy sprite (16x16, SNES-style) - create temp PNG and load texture
-            img_array = np.random.randint(0, 256, (16, 16, 3), dtype=np.uint8)
-            img = Image.fromarray(img_array)
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
-                img.save(tmp_file.name, "PNG")
-                temp_path = tmp_file.name
-            texture = arcade.load_texture(temp_path)
-            os.unlink(temp_path)  # Clean up
-            self.sprite_cache[key] = [texture] * frames  # Single frame repeat
-        print(f"Loaded sprite {key} ({frames} frames)")
+    def update_status(self, status: Dict[str, Any]):
+        self.status = status
 
-    def play_animation(
-        self, sprite_key: str, duration_frames: int, pos: tuple = (100, 100)
-    ):
-        """Animate sprite at 60fps using Arcade window."""
-        # Fallback texture if not loaded
-        if sprite_key not in self.sprite_cache or not self.sprite_cache[sprite_key]:
-            fallback_texture = arcade.Texture.create_filled(
-                (16, 16), (255, 0, 0)
-            )  # Red square
-            frames = [fallback_texture]
-        else:
-            frames = self.sprite_cache[sprite_key]
-        AnimationWindow(frames, duration_frames, pos)
-        arcade.run()
+    def load_sprite(self, rel_path: str):
+        full_path = Path(__file__).parent.parent / rel_path
+        p = str(full_path)
+        if p not in self.sprite_cache:
+            self.sprite_cache[p] = pygame.image.load(p).convert_alpha()
+        return self.sprite_cache[p]
 
-    def render_background(self, tilemap: str):
-        """Render SNES background layer (Mode 0-7)."""
-        BackgroundWindow(tilemap)
-        arcade.run()
+    def tick(self):
+        self.screen.fill((10, 10, 30))
+        mario_rel = "assets/authentic_sprites/super_mario_world_mario.png"
+        if (Path(__file__).parent.parent / mario_rel).exists():
+            mario = pygame.transform.scale(self.load_sprite(mario_rel), (128, 128))
+            self.screen.blit(mario, (100, 500))
+        ness_rel = "assets/ASSETS/sprites/ness_0x3_0x82000.png"
+        if (Path(__file__).parent.parent / ness_rel).exists():
+            ness = pygame.transform.scale(self.load_sprite(ness_rel), (96, 96))
+            self.screen.blit(ness, (300, 520))
+        font_l = pygame.font.Font(None, 48)
+        title = font_l.render("T3MPLATE TV NETWORK", True, (0, 255, 0))
+        self.screen.blit(title, (20, 20))
+        font_s = pygame.font.Font(None, 32)
+        sub = font_s.render("Gary PD Live - SNES Universe Broadcast", True, (255,255,255))
+        self.screen.blit(sub, (20, 70))
+        status_t = pygame.font.Font(None, 24).render(f"Phase: {self.status.get('phase', '?')} | Shows: {self.status.get('shows', 0)} | Relationships: {self.status.get('relationships', 0)}", True, (255,255,0))
+        self.screen.blit(status_t, (20, 110))
+        scan_surf = pygame.Surface((1280, 720), pygame.SRCALPHA)
+        for i in range(0, 720, 3):
+            alpha = 25 if i % 6 == 0 else 10
+            pygame.draw.line(scan_surf, (0,0,0,alpha), (0,i), (1280,i))
+        self.screen.blit(scan_surf, (0,0))
+        pygame.display.flip()
+        self.clock.tick(60)
 
-    def shutdown(self):
-        print("Renderer shutdown")
+    def _screen_loop(self):
+        while self.running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+            self.tick()
+        pygame.quit()
 
+    def format_for_gary(self) -> str:
+        return f"Status: {{'phase': '{self.status.get('phase', 'dev')}', 'shows': {self.status.get('shows', 0)}}}"
 
-# Global renderer
 renderer = Renderer()
-
-if __name__ == "__main__":
-    renderer.load_sprite("smw", 29, 32768)
-    renderer.play_animation("smw_29_32768", 120)
-    renderer.shutdown()

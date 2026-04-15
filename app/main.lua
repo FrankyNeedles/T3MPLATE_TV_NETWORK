@@ -4,11 +4,15 @@
 function love.load()
     -- Load sprites from PNG/banks
     sprites = {}
-    for i=1,4 do  -- Mock 4 sprites
-        sprites[i] = love.graphics.newImage("assets/authentic_sprites/mario.png")  -- From extracted
+    local pngs = {"super_mario_world_mario.png", "super_mario_world_luigi.png", "super_mario_world_yoshi.png", "super_mario_world_bowser.png"}
+    for i=1,4 do
+        sprites[i] = love.graphics.newImage("assets/authentic_sprites/" .. pngs[i])
     end
     tiles = love.graphics.newQuad(0, 0, 16, 16, sprites[1]:getDimensions())
-    snp = love.audio.newSource("assets/audio/jump_sfx.wav", "static")
+    snp = love.audio.newSource("assets/audio/super_mario_world_jump_sfx.wav", "static")
+    banks = {}
+    banks.coin = love.audio.newSource("assets/audio/super_mario_world_coin.wav", "static")
+    banks.jump = love.audio.newSource("assets/audio/jump.wav", "static")
 end
 
 function love.update(dt)

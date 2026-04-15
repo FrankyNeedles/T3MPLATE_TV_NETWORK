@@ -1,5 +1,4 @@
-# T3MPLATE_TV_NETWORK Error Fixes TODO
-Status: 0/16 complete [In Progress]
+Status: 6/50 complete [Phase 0 Deps/Renderer ✅ | Phase2.1 Extractor fixed | Next: run.py ROM path]
 
 ## Phase 1: Dependencies & Config (4 steps)
 - [ ] 1.1 Update requirements.txt with all missing deps

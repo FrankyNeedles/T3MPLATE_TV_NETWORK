@@ -5,59 +5,61 @@ try:
 except ImportError:
     pygame = None
 
-import time
 from app.station import Station
-from app.renderer import Renderer
-from app.audio import AudioPlayer
-from app.living_world import Timeline
-from playwright.async_api import async_playwright
-import asyncio
 
 
-@pytest.fixture
-def event_loop():
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+def test_station_init():
+    """Test Station initialization."""
+    station = Station()
+    assert station.gary is not None
+    assert station.living_world is not None
+    assert station.tick_count == 0
+    assert station.status["ready"] is True
 
 
-def test_1hr_sim():
-    pygame.init()
+def test_station_tick():
+    """Test station tick increments counter."""
     station = Station()
     station.running = True
-    start_events = len(station.session.query(Timeline).all())
-    # Sim 1hr = 20 ticks (3min each)
-    for _ in range(20):
-        station.tick()
-        time.sleep(0.1)  # Mock delay
-    end_events = len(station.session.query(Timeline).all())
-    assert end_events - start_events >= 20
-    # Video assert: Mock surface frames
-    renderer = Renderer()
-    surface = pygame.Surface((640, 480))
-    renderer.render_visual({"visual": {"sprite_name": "mario"}})
-    assert surface.get_at((100, 100)) != (0, 0, 0, 0)  # Non-black pixel
-    pygame.quit()
+    initial_tick = station.tick_count
+    station.tick()
+    assert station.tick_count == initial_tick + 1
 
 
-def test_audio_duration():
-    audio = AudioPlayer()
-    start = time.time()
-    audio.play_wav("assets/audio/coin.wav")  # Mock 5s
-    time.sleep(5)
-    assert abs(time.time() - start - 5) < 1  # Duration match
+def test_station_daypart():
+    """Test daypart detection."""
+    station = Station()
+    assert station._get_daypart(7.0) == "morning"
+    assert station._get_daypart(12.0) == "daytime"
+    assert station._get_daypart(18.0) == "evening"
+    assert station._get_daypart(21.0) == "primetime"
+    assert station._get_daypart(0.0) == "late"
 
 
-@pytest.mark.asyncio
-async def test_api_endpoints():
-    async with async_playwright() as p:
-        browser = await p.chromium.launch()
-        page = await browser.new_page()
-        await page.goto("http://127.0.0.1:8000/status")
-        status = await page.content()
-        assert "daypart" in status
-        await browser.close()
+def test_station_status():
+    """Test station status tracking."""
+    station = Station()
+    status = station.tick()
+    assert "shows" in status
+    assert "relationships" in status
+    assert "phase" in status
+
+
+def test_emergency_fallbacks():
+    """Test emergency fallback patterns."""
+    from app.station import EmergencyFallbacks
+
+    pattern = EmergencyFallbacks.test_pattern()
+    assert pattern["type"] == "test_pattern"
+    assert "colors" in pattern
+
+    color_bar = EmergencyFallbacks.color_bar()
+    assert color_bar["type"] == "color_bar"
+
+    station_id = EmergencyFallbacks.station_id()
+    assert station_id["type"] == "station_id"
+    assert station_id["loop"] is True
 
 
 if __name__ == "__main__":
-    pytest.main(["-v"])
+    pytest.main(["-v", __file__])

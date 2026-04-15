@@ -55,3 +55,13 @@ def obs_guide():
         "script": "scripts/obs_setup.bat",
         "audio": "PyAudio mix -> VB-Audio Cable",
     }
+
+
+from prometheus_client import Counter, generate_latest
+
+tick_counter = Counter("station_ticks_total", "Total station ticks")
+
+
+@app.get("/metrics")
+def metrics():
+    return generate_latest()
