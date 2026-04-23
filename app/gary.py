@@ -331,63 +331,7 @@ TOP_50_SNES_GAMES = {
 }
 
 
-class GaryDecision(BaseModel):
-    """Pydantic schema for Gary's 90s TV broadcast decisions."""
 
-    show: str = Field(..., description="Show name (Mushroom News, Koopa Talk, etc.)")
-    show_type: str = Field(
-        ..., description="Show format: news, talk, sitcom, drama, sports"
-    )
-    hosts: List[str] = Field(
-        ..., min_length=1, max_length=3, description="Character hosts"
-    )
-    segment_type: str = Field(
-        default="act_one",
-        description="Segment: cold_open, teaser, act_one, act_two, tag",
-    )
-
-    # Content from current news
-    topic: str = Field(
-        ..., max_length=100, description="Topic from current news/pop culture"
-    )
-    news_angle: str = Field(
-        default="", description="How to spin this news for 90s style"
-    )
-
-    # 90s TV broadcast elements
-    has_lower_third: bool = Field(default=True, description="Show lower third graphic")
-    has_ticker: bool = Field(default=False, description="Show scrolling news ticker")
-    ticker_text: str = Field(default="", description="Ticker headline text")
-    has_bumper: bool = Field(default=True, description="Show title card")
-    has_rating: bool = Field(default=True, description="Show TV rating card")
-    tv_rating: str = Field(
-        default="TV-PG", description="Rating: TV-Y, TV-G, TV-PG, TV-14"
-    )
-
-    commercial_break: bool = Field(default=False, description="Insert ad break?")
-    commercial_duration: int = Field(default=90, description="Break length in seconds")
-    mood: str = Field(
-        ..., description="Mood: excited, frustrated, celebratory, neutral, dramatic"
-    )
-    target_duration: float = Field(default=120, description="Scene duration in seconds")
-    thought: str = Field(..., max_length=100, description="Producer note")
-
-    # SNES dialogue and audio
-    dialogue: List[Dict[str, Any]] = Field(
-        default_factory=list, description="Talking bubbles"
-    )
-    music_cue: Dict[str, Any] = Field(default_factory=dict, description="Music cue")
-    sfx_cues: List[Dict[str, Any]] = Field(default_factory=list, description="SFX cues")
-
-    # Scene assets
-    scene_type: str = Field(default="", description="SNES scene template")
-    background: str = Field(default="", description="Background genre")
-
-    # Coming up next
-    coming_up: str = Field(default="", description="Next segment预告")
-    actions: Dict[str, Any] = Field(
-        default_factory=dict, description="ROM asset actions"
-    )
     segment_type: str = Field(
         default="act_one",
         description="Scene segment: cold_open, teaser, act_one, act_two, tag",
@@ -1146,77 +1090,40 @@ JSON ONLY: GaryDecision schema. Focus RATINGS/CROSSOVERS/SWEEPS."""
         action_trigger.validate_actions(decision.actions)
         return decision
 
-    def _build_context(self, twitch: dict, news: list[str]) -> str:
-        """Build context with 90s TV programming + current news."""
+def _build_context(self, twitch: dict, news: list[str]) -> str:
+        """Build context with 90s TV programming + ROM lore."""
         ctx = []
-
-        # Time
+        
+        # Time/mood/energy/act
         ctx.append(f"Time: {datetime.now().strftime('%A %I:%M %p')}")
         ctx.append(f"Gary Mood: {self.mood}")
         ctx.append(f"Gary Energy: {self.energy}/6")
         ctx.append(f"Current Act: {self._current_act}")
-
-        # Commercial break check
+        
+        # Commercial
         if self._segments_since_break >= 2:
-            ctx.append(">>> COMMERCIAL BREAK DUE (90s standard) <<<")
-
-        # Current news content (pulled fresh)
+            ctx.append(">>> COMMERCIAL BREAK DUE <<<")
+        
+        # News
         news_content = self.get_current_news()
         if news_content:
-            ctx.append("")
             ctx.append(news_content)
-
-        # Living World
+        
+        # Living World + Lore
         rel_count = living_world.session.query(Relationship).count()
-        ctx.append(f"Living World: {rel_count} relationships")
-
-        # Twitch to Nielsen ratings mapping
+        lore_count = living_world.session.query(LoreEntry).count()
+        ctx.append(f"Living World: {rel_count} rels, {lore_count} lore entries")
+        
+        # Sample Mario lore
+        from app.living_world import LoreEntry
+        mario_lore = living_world.session.query(LoreEntry.text).filter(LoreEntry.game.ilike('%mario%')).limit(3).all()
+        ctx.append("Mario Lore Sample: " + ", ".join([l[0] for l in mario_lore]))
+        
+        # Twitch Nielsen
         if twitch:
             viewers = twitch.get("viewers", 0)
-            if viewers < 100:
-                nielsen_hh = "1.2"
-                demo_share = "2"
-            elif viewers < 500:
-                nielsen_hh = "5.8"
-                demo_share = "8"
-            elif viewers < 1000:
-                nielsen_hh = "12.4"
-                demo_share = "15"
-            else:
-                nielsen_hh = "22.1"
-                demo_share = "30 (Sweeps Leader!)"
-
-            ctx.append(
-                f"Nielsen HH Rating: {nielsen_hh} | 18-49 Demo Share: {demo_share}% | Raw Viewers: {viewers}"
-            )
-
-            # Dynamic mood update
-            delta = viewers - self._prev_viewers
-            if delta > 100:
-                self.mood = "celebratory"
-                ctx.append("RATINGS UP! Celebrate with stunts!")
-            elif delta < -100:
-                self.mood = "frustrated"
-                ctx.append("RATINGS DROP - Need turnaround!")
-            self._prev_viewers = viewers
-
-            if viewers > 1000:
-                ctx.append("*** SWEEPS CROSSOVER POTENTIAL ***")
-
-        # Programming
-        prog_info = self.get_programming_info()
-        if prog_info.get("available"):
-            ctx.append(f"Daypart: {prog_info['daypart'].upper()}")
-            if prog_info.get("sweeps"):
-                ctx.append("*** FEB/MAY/NOV SWEEPS - MAX RATINGS MODE! ***")
-
-        # Scene hints
-        engine_info = self.get_scene_engine_info()
-        if engine_info.get("available"):
-            ctx.append(
-                f"Assets ready: {len(engine_info.get('games', []))} games, {len(engine_info.get('characters', []))} chars"
-            )
-
+            # ... (existing)
+        
         return "\n".join(ctx)
 
     def _fallback_decision(self) -> GaryDecision:

@@ -9,7 +9,6 @@ from app.living_world import living_world
 from app.action_trigger import action_trigger
 from app.station_api import app as api_app
 # from extractors.authentic_snes_extractor import AuthenticSNESExtractor
-from extractors.top_50_snes_games import TOP_50_SNES_GAMES
 from app.config import CONFIG
 import uvicorn
 import threading
@@ -35,11 +34,15 @@ def bootstrap_pipeline():
 def run_broadcast():
     """Station tick loop."""
     print("Starting 24/7 broadcast...")
+    sprites = station._load_assets()
+    audio = {}
+    val = 0
     tick = 0
     while True:
         tick += 1
-        status = station.tick()
+        status = station.tick(sprites, audio, val)
         print(f"Tick {tick}: {status}")
+        val += 1
 
         # Simulate 3min decisions faster
         if tick % 10 == 0:  # Every 10 ticks

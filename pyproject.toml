@@ -1,1 +1,44 @@
-[tool.poetry]\nname = \"t3mplate-tv-network\"\nversion = \"1.0.0\"\ndescription = \"Autonomous SNES TV Network - FULL_VISION.md 100% Alignment\"\nauthors = [\"Frank <frank@example.com>\"]\nreadme = \"README.md\"\npackage-mode = false\n\n[tool.poetry.dependencies]\npython = \"^3.11\"\npydantic-settings = \"^2.3.4\"\nfastapi = \"^0.115.0\"\nuvicorn = {extras = [\"standard\"], version = \"^0.32.0\"}\nrequests = \"2.32.3\"\nbeautifulsoup4 = \"^4.12.3\"\nsqlalchemy = \"^2.0.35\"\npillow = \"^10.4.0\"\npygame = \"^2.6.1\"\nlangchain-core = \"^0.3.4\"\npython-dotenv = \"^1.0.1\"\njsonschema = \"^4.21.1\"\ntyping-extensions = \"^4.12.0\"\nprometheus-client = \"0.20.0\"\nsounddevice = \"^0.5.1\"\nsoundfile = \"^0.12.1\"\n\n[tool.poetry.group.dev.dependencies]\npytest = \"^8.3.3\"\nruff = \"^0.7.0\"\nmypy = \"^1.11.2\"\npre-commit = \"^3.8.0\"\n\n[build-system]\nrequires = [\"poetry-core >=1.0.0\"]\nbuild-backend = \"poetry.core.masonry.api\"\n\n[tool.ruff]\nline-length = 88\ntarget-version = 'py311'\n\n[tool.pytest]\ntestpaths = [\"tests\"]\npythonpath = \".\"\n
+[tool.poetry]
+name = "t3mplate-tv-network"
+version = "1.0.0"
+description = "Autonomous SNES TV Network - FULL_VISION.md 100% Alignment"
+authors = ["Frank <frank@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic-settings = "^2.3.4"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+requests = "2.32.3"
+beautifulsoup4 = "^4.12.3"
+sqlalchemy = "^2.0.35"
+pillow = "^10.4.0"
+pygame = "^2.6.1"
+langchain-core = "^0.3.4"
+python-dotenv = "^1.0.1"
+jsonschema = "^4.21.1"
+typing-extensions = "^4.12.0"
+prometheus-client = "0.20.0"
+sounddevice = "^0.5.1"
+soundfile = "^0.12.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+ruff = "^0.7.0"
+mypy = "^1.11.2"
+pre-commit = "^3.8.0"
+
+[build-system]
+requires = ["poetry-core >=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88
+target-version = 'py311'
+
+[tool.pytest]
+testpaths = ["tests"]
+pythonpath = "."
+

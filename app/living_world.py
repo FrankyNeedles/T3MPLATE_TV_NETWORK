@@ -131,12 +131,20 @@ class TimelineEvent(Base):
 
 class RunningGag(Base):
     __tablename__ = "running_gags"
-
+    
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     gag_text: Mapped[str] = mapped_column(String(200))
     occurrence_count: Mapped[int] = mapped_column(Integer, default=0)
     last_used: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     associated_characters: Mapped[list] = mapped_column(JSON, default=list)
+
+class LoreEntry(Base):
+    __tablename__ = "lore_entries"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game: Mapped[str] = mapped_column(String(100))
+    type: Mapped[str] = mapped_column(String(20))  # string/music/enemy/item
+    text: Mapped[str] = mapped_column(Text)
 
 
 class LivingWorld:
