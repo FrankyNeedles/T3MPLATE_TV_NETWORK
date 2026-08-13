@@ -69,7 +69,7 @@ class Renderer:
         """Place + animate cast (movement library drives pose selection)."""
         n = len(segment.cast)
         base_w = 16 * 2           # 2x native sprite width
-        spacing = (WN - base_w * 0) // max(1, n + 1)
+        spacing = WN // max(1, n + 1)   # (n1) was `(WN - base_w * 0)` -- dead multiply
         for i, c in enumerate(segment.cast):
             poses, fps, loop = movement_library.play(c.name, c.motion or "idle")
             pose = poses[int(frame // max(1, round(6 / fps))) % len(poses)]
@@ -216,7 +216,9 @@ def render_segment(segment: broadcast.BroadcastSegment,
     """
     r = renderer or Renderer()
     rate = fps or SETTINGS.rate
-    frames_total = max(1, int(24 * (len(segment.beats) or 1) * 1.0))  # ~1 beat/s
+    # ~1 beat/sec of show; duration in frames honors the fps rate (n3), so
+    # raising fps yields proportionally more frames for the same wall time.
+    frames_total = max(1, int(rate * (len(segment.beats) or 1)))
     # bumper lead-in
     for f in range(20):
         if not segment.bumper:

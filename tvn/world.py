@@ -18,6 +18,7 @@ from sqlalchemy import (
     String, Integer, Float, Boolean, DateTime, ForeignKey, Text, JSON, func, or_, and_,
     create_engine,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     DeclarativeBase, sessionmaker, relationship, Mapped, mapped_column,
 )
@@ -136,8 +137,21 @@ class LivingWorld:
 
     # -- seeding (curated, not random 88) -------------------------------------
     def _seed(self):
+        """Insert curated cast/relationships if the DB is empty.
+
+        Concurrency-safe (m5): if two processes race to first-seed, the loser
+        hits an IntegrityError on commit and simply rolls back -- the winner's
+        rows are retained, no crash, no duplicate seed.
+        """
         if self.session.query(Character).count() > 0:
             return
+        try:
+            self._seed_now()
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()   # another worker seeded first; ours is moot
+
+    def _seed_now(self):
         names = {}
         for name, meta in content.CAST.items():
             ch = Character(name=name, game=meta["game"], kind=meta["kind"],
@@ -165,7 +179,6 @@ class LivingWorld:
                             ("late_night", ["wario"]), ("action", ["link"])]:
             self.session.add(Show(name=f"{fmt.title()} of T3TV", status="series",
                                   genre=fmt, rating=7.0, hosts=preset))
-        self.session.commit()
 
     def _add_rel(self, a, b, score):
         self.session.add(Relationship(character1_id=min(a, b),
@@ -259,13 +272,16 @@ class LivingWorld:
                 if tension:
                     delta += tension
                 rel.score = max(-100, min(100, rel.score + delta))
+                # popularity follows the relationship outcome: friends glow,
+                # a pair mid-feud loses face. Same sign as the chemistry delta.
+                pop_delta = 1 if rel.score >= 0 else -1
                 cause = f"co-hosted on {show}" if show else "aired together"
                 rel.events.append({"event": cause, "delta": delta,
                                    "date": datetime.now().isoformat()})
-                self._note(f"{a} & {b} {cause} (score {rel.score}, +{delta} delta)",
+                self._note(f"{a} & {b} {cause} (score {rel.score}, {pop_delta:+.0f} pop)",
                            reason=f"chemistry on {'/'.join(cast)}", outcome=outcome)
-                ca.popularity = min(100, ca.popularity + 1)
-                cb.popularity = min(100, cb.popularity + 1)
+                ca.popularity = min(100, max(0, ca.popularity + pop_delta))
+                cb.popularity = min(100, max(0, cb.popularity + pop_delta))
         # bump the show rating gently (performance, not dice)
         if show:
             s = self.session.query(Show).filter_by(name=show).first()

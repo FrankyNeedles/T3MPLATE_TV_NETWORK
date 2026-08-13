@@ -121,8 +121,8 @@ class GaryPD:
             if meta:
                 casts.append(broadcast.Cast(name=name, kind=meta["kind"],
                                             title=meta["role"], motion="idle"))
-        if beat == "feud" and "feud_c2" in fills and fmt in ("talk", "morning", "news"):
-            guest = fills["feud_c2"]
+        if beat == "feud" and "guest" in fills:
+            guest = fills["guest"]
             g = content.CAST.get(guest)
             if g and all(c.name != guest for c in casts):
                 casts.append(broadcast.Cast(name=guest, kind=g["kind"],
@@ -139,27 +139,26 @@ class GaryPD:
             casts = [broadcast.Cast(name="toad", kind="toad", title="Host",
                                     motion="idle")]
 
-        # pin the fill names to THIS beat's real actors (not whichever beat won)
-        if beat == "feud" and "feud_c2" in fills:
-            fills["c1"], fills["c2"] = fills["feud_c1"], fills["feud_c2"]
-        elif beat == "friendship":
+        # Keep the SHOW'S OWN presenters as the dialogue speakers. We do NOT
+        # re-pin c1/c2 onto the top friendship/feud actors -- that override used
+        # to bump the real co-host off-mic (m2). The feud / seeking-work
+        # participant is added as a guest speaker instead of replacing a host.
+        if len(casts) >= 2:
+            fills["c1"], fills["c2"] = casts[0].name, casts[1].name
+        else:
+            fills["c1"] = casts[0].name
+            fills["c2"] = fills.get("c2", "the viewers")
+        if beat in ("friendship", "gag", "ratings", "show_promo") and \
+                digest["friendships"] and len(casts) >= 2:
+            # keep a live score for the (host,host) pairing when a relationship
+            # exists between these two presenters, else inherit the enrich score
             f = digest["friendships"][0]
-            fills["c1"], fills["c2"], fills["score"] = f["a"], f["b"], abs(f["score"])
-        elif beat == "gag":
-            f = digest["friendships"][0] if digest["friendships"] else \
-                {"a": casts[0].name, "b": casts[1].name if len(casts) > 1 else "the viewers", "score": 40}
-            fills["c1"], fills["c2"], fills["score"] = f["a"], f["b"], abs(f["score"])
+            fills["score"] = fills.get("score", abs(f["score"]))
+        if beat == "feud" and "feud_c2" in fills:
+            fills["guest"] = fills.get("feud_c2")   # feud partner joins as guest
         elif beat == "seeking_work":
             fills["host"] = casts[0].name
             fills["guest"] = fills.get("guest", "toad")
-        elif beat in ("ratings", "show_promo"):
-            f = digest["friendships"][0] if digest["friendships"] else \
-                {"a": casts[0].name, "b": casts[1].name if len(casts) > 1 else "the network", "score": 40}
-            fills["c1"], fills["c2"], fills["score"] = f["a"], f["b"], abs(f["score"])
-        else:
-            f = digest["friendships"][0] if digest["friendships"] else \
-                {"a": casts[0].name, "b": casts[1].name if len(casts) > 1 else "the viewers", "score": 40}
-            fills["c1"], fills["c2"], fills["score"] = f["a"], f["b"], abs(f["score"])
 
         # dialogue beats from the template, filled with live world data
         tpl = content.FALLBACK_BEATS[beat]

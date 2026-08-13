@@ -56,10 +56,12 @@ def synth_bed(track: str, seconds: float = 12.0, rate: int = RATE) -> np.ndarray
     # normalize to a sane broadcast level
     peak = np.max(np.abs(out)) or 1.0
     out = (out / peak) * 0.6
-    # loop continuity: crossfade tail into head so it loops cleanly
+    # loop continuity: crossfade tail into head so it loops cleanly.
+    # (n2) the old line used `head * 0.0`, zeroing the blend -- a no-op. Use the
+    # actual tail clip so the loop seam is a real fade, not a silent edge cut.
     ff = rate // 8
-    head = np.copy(out[:ff])
-    out[:ff] = 0.5 * (out[:ff] + head * 0.0)
+    tail = np.copy(out[-ff:])
+    out[:ff] = 0.5 * (out[:ff] + tail)
     return out
 
 

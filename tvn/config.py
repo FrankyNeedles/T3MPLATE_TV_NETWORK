@@ -9,7 +9,17 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - tolerate environments without dotenv
+    load_dotenv = None
+
 ROOT = Path(__file__).resolve().parent.parent
+
+if load_dotenv is not None:
+    # `.env` at repo root (TWITCH_STREAM_KEY, T3TV_FFMPEG, ...) must be loaded
+    # BEFORE Settings reads os.getenv, or --stream/.env config is dead on arrival.
+    load_dotenv(ROOT / ".env")
 
 
 class Settings:

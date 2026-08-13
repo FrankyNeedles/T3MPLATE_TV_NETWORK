@@ -52,6 +52,7 @@ __pycache__/
 *.pyc
 OUTPUT/
 data/lore/*.db
+data/living_world.db
 assets/catalog.json
 assets/_*.png
 assets/audio/bed_*.wav

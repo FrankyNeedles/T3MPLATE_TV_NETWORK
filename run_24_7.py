@@ -32,7 +32,7 @@ def main() -> int:
         print("No TWITCH_STREAM_KEY in .env -- cannot stream. Set it, or run record mode.")
         return 2
 
-    runner.run_forever(stream=args.stream)
+    runner.run_forever(stream=args.stream, seconds=args.seconds)
     return 0
 
 

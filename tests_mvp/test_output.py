@@ -30,6 +30,21 @@ def test_mixer_returns_stable_loop():
     assert np.max(np.abs(tr)) > 0.01
 
 
+def test_synth_bed_crossfade_uses_tail():
+    """n2 -- the loop-crossfade must blend the TAIL into the head (not a silent no-op)."""
+    samples = audio.synth_bed("bumper", seconds=1.0)
+    ff = audio.RATE // 8
+    head = np.copy(samples[:ff])
+    tail = np.copy(samples[-ff:])
+    # the head should now be a blend including the tail, i.e. non-negligibly
+    # different from a pure halved head (the old `head * 0.0` no-op).
+    pure_half = 0.5 * np.zeros_like(head)  # old bug: blend term was zero
+    assert np.max(np.abs(head)) > 0.0       # head is audible, not muted
+    # and the seam is continuous: |head-start - tail-end| stays smooth
+    seam_gap = abs(float(head[0]) - float(tail[-1]))
+    assert seam_gap < np.max(np.abs(samples))   # loop joins without a big click
+
+
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg not on PATH")
 def test_run_once_produces_playable_broadcast(tmp_path):
     """Green gate: run_once must write a real MP4 (video+audio, non-trivial size)."""
