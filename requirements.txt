@@ -1,1 +1,10 @@
-# T3MPLATE TV NETWORK - FULL_VISION Aligned Dependencies&#10;&#10;# Core API/DB/Assets&#10;pydantic-settings==2.3.4&#10;fastapi==0.115.0&#10;uvicorn[standard]==0.32.0&#10;requests==2.32.3&#10;beautifulsoup4==4.12.3&#10;sqlalchemy==2.0.35&#10;pillow==10.4.0&#10;langchain-core==0.3.4&#10;python-dotenv==1.0.1&#10;jsonschema==4.21.1&#10;&#10;# Render/Audio (Pygame stub + BRR SFX mixing)&#10;pygame==2.6.1&#10;sounddevice==0.5.1&#10;soundfile==0.12.1&#10;&#10;# Dev/Lint/Test/Validation&#10;pytest==8.3.3&#10;ruff==0.7.0&#10;mypy==1.11.2&#10;pre-commit==3.8.0&#10;prometheus-client==0.20.0&#10;&#10;# Notes: Poetry primary (pyproject.toml). Pip fallback. No pyaudio (3.14 compat). Install: pip install -r requirements.txt
+# T3MPLATE TV WORLD - minimal honest MVP runtime
+# Clean deps only: world (SQLAlchemy), render (Pillow+numpy), decision (pydantic).
+# ffmpeg is external (on PATH); NO pygame, NO sounddevice, NO window.
+sqlalchemy>=2.0
+Pillow>=10.0
+numpy>=1.24
+pydantic>=2.0
+
+# dev / test
+pytest>=8.0

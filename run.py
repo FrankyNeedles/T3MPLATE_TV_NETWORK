@@ -1,77 +1,50 @@
+#!/usr/bin/env python3
+"""T3MPLATE TV WORLD -- one-shot broadcast demo + world check.
+
+Records a short real broadcast segment of the current grid slot (with SNES-style
+audio) to OUTPUT/broadcast/demo.mp4, and prints the living-world digest + morning
+report so you can see content is CAUSED by the world (not random).
+
+Green-gate check: `ffprobe OUTPUT/broadcast/demo.mp4` should show a non-blank
+512x448 h264 video stream + aac audio, length == the requested seconds.
+"""
+from __future__ import annotations
+
+import argparse
 import sys
-import os
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from app.station import station
-from app.gary import gary
-from app.living_world import living_world
-from app.action_trigger import action_trigger
-from app.station_api import app as api_app
-# from extractors.authentic_snes_extractor import AuthenticSNESExtractor
-from app.config import CONFIG
-import uvicorn
-import threading
-import time
+from tvn import runner
+from tvn.config import SETTINGS
+from tvn.world import open_world
 
 
-def bootstrap_pipeline():
-    """Bootstrap: Extract + Validate + DB Load."""
-    print("Starting extraction...")
-    rom_path = CONFIG.roms_dir / "chrono_trigger.sfc"  # Example from TV_WORLD
-    if rom_path.exists():
-        print("Extraction stub - chrono_trigger ROM missing, skip for now")
-        print(
-            f"Extraction: {len(sprites)} sprites, {len(audio)} audio. Validation: {val['valid']}"
-        )
+def main() -> int:
+    ap = argparse.ArgumentParser(description="T3MPLATE TV one-shot demo broadcast")
+    ap.add_argument("--seconds", type=float, default=20.0, help="length (s)")
+    ap.add_argument("--out", type=str, default=str(SETTINGS.broadcast_dir / "demo.mp4"))
+    args = ap.parse_args()
 
-    print("Bootstrapping living world...")
-    living_world._populate_initial_data()  # From JSONs
+    world = open_world()   # persistent DB under data/lore/
+    print("=" * 64)
+    print("T3MPLATE TV WORLD -- living 90s SNES broadcast")
+    print("=" * 64)
+    print("LIVING WORLD DIGEST (what's actually airing):")
+    print(world.describe_world())
+    print("-" * 64)
 
-    print("Pipeline ready!")
-
-
-def run_broadcast():
-    """Station tick loop."""
-    print("Starting 24/7 broadcast...")
-    sprites = station._load_assets()
-    audio = {}
-    val = 0
-    tick = 0
-    while True:
-        tick += 1
-        status = station.tick(sprites, audio, val)
-        print(f"Tick {tick}: {status}")
-        val += 1
-
-        # Simulate 3min decisions faster
-        if tick % 10 == 0:  # Every 10 ticks
-            decision = gary.make_decision()
-            action_trigger.execute_decision(decision.model_dump())
-
-        time.sleep(0.1)  # 10fps demo
-
-
-def run_api():
-    """FastAPI server."""
-    uvicorn.run(
-        api_app, host=CONFIG.api_host, port=CONFIG.api_port, reload=CONFIG.api_reload
-    )
+    out = Path(args.out)
+    path = runner.run_once(seconds=args.seconds, out=out, world=world)
+    print(f"\nBroadcast recorded -> {path} ({path.stat().st_size} bytes)")
+    print(f"Verify: ffprobe \"{path}\"")
+    print("-" * 64)
+    print("MORNING REPORT:")
+    rep = world.morning_report()
+    print(f"  shows: {rep['stats']['shows']} | relationships: {rep['stats']['relationships']}")
+    for e in rep["recent_events"]:
+        print(f"  - {e}")
+    return 0
 
 
 if __name__ == "__main__":
-    bootstrap_pipeline()
-
-    # Threads: API + Broadcast
-    api_thread = threading.Thread(target=run_api, daemon=True)
-    api_thread.start()
-
-    broadcast_thread = threading.Thread(target=run_broadcast, daemon=True)
-    broadcast_thread.start()
-
-    # Wait for threads
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Shutdown...")
+    sys.exit(main())

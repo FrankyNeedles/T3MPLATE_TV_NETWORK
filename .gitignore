@@ -46,3 +46,12 @@ assets/large/
 *.log
 tmp/
 .DS_Store
+# T3MPLATE TV runtime build artifacts
+.venv-mvp/
+__pycache__/
+*.pyc
+OUTPUT/
+data/lore/*.db
+assets/catalog.json
+assets/_*.png
+assets/audio/bed_*.wav
