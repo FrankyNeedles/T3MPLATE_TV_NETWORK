@@ -34,6 +34,18 @@ from . import content
 from .config import SETTINGS
 
 
+# Stage 4 (BALANCE THE WORLD, BUG-2): mean-reverting drift, not a one-way
+# ratchet. A co-hosting pair is pulled toward a SIGNED baseline (friends settle
+# near +BASELINE, feuds near -BASELINE) with a reversion that fights ±100:
+#   delta = K*(baseline - score)  -> positive below baseline, NEGATIVE beyond it,
+#   so scores oscillate around the baseline instead of saturating at the cap.
+BASELINE = 65.0      # a mature aired bond rests near ±65, not ±100
+_REVERSION_K = 0.12  # pull-to-baseline strength per airing
+_TENSION_K = 0.30    # per-unit tension push along the relationship axis
+_POP_BASELINE = 60.0 # celebrity floor/trend every co-host drifts toward
+_POP_K = 0.15        # popularity reversion strength per airing
+
+
 # New columns added against a pre-existing on-disk DB (Stage 3 world widening).
 # create_all() won't add columns to an existing table, so we ALTER here instead.
 _ADD_COLUMNS = {
@@ -386,6 +398,35 @@ class LivingWorld:
                 .first())
 
     # -- causal evolution -----------------------------------------------------
+    @staticmethod
+    def _airing_delta(score: int, tension: int = 0) -> int:
+        """Mean-reverting co-host delta (Stage 4 / BUG-2).
+
+        Pulls the relationship toward its SIGNED baseline (+BASELINE for friends,
+        -BASELINE for feuds); beyond the baseline the pull turns NEGATIVE, so a
+        pair never ratchets to ±100 but oscillates around its resting level.
+        Tension (a heated/high-stakes segment) pushes a hair further along the
+        relationship's own axis. A zero net pull is nudged by one point so an
+        aired pair always registers, keeping the world from freezing exactly on
+        baseline (drift, not a dead equilibrium).
+        """
+        direc = 1.0 if score >= 0 else -1.0
+        baseline = direc * BASELINE
+        pull = _REVERSION_K * (baseline - score)
+        if tension:
+            pull += tension * _TENSION_K * direc
+        d = int(round(pull))
+        return d if d != 0 else int(direc)
+
+    @staticmethod
+    def _pop_delta(score: int, popularity: float) -> int:
+        """Mean-reverting popularity delta (Stage 4): fame drifts toward the
+        celebrity baseline on every airing; a friend glows a little extra, a
+        feud loses a little face, but nobody pins at 100/0 forever."""
+        direc = 1.0 if score >= 0 else -1.0
+        pull = _POP_K * (_POP_BASELINE - popularity) + (1.5 if direc > 0 else -1.5)
+        return int(round(pull))
+
     def on_air(self, cast: list[str], show: Optional[str] = None,
                tension: int = 0, outcome: str = "aired",
                caused_by_event_id: Optional[int] = None):
@@ -421,13 +462,11 @@ class LivingWorld:
                                        events=[])
                     self.session.add(rel)
                 rel.events = rel.events or []
-                delta = 4 if rel.score >= 0 else -4
-                if tension:
-                    delta += tension
+                delta = self._airing_delta(rel.score, tension)
                 rel.score = max(-100, min(100, rel.score + delta))
-                # popularity follows the relationship outcome: friends glow,
-                # a pair mid-feud loses face. Same sign as the chemistry delta.
-                pop_delta = 1 if rel.score >= 0 else -1
+                # popularity mean-reverts toward the celebrity baseline (plays
+                # the whole world's fame, not a per-pair on/off ratchet).
+                pop_delta = self._pop_delta(rel.score, ca.popularity)
                 cause = f"co-hosted on {show}" if show else "aired together"
                 # every mutation carries a reason + the causal chain link
                 rel.events.append({"event": cause, "delta": delta,
