@@ -134,32 +134,46 @@ def _iter_pcm_chunks(audio: bytes, fps: int, rate: int) -> Iterator[bytes]:
         yield audio[i:i + chunk_bytes]
 
 
+
+_END = object()  # iteration-sentinel for stream_rtmp peek
 def stream_rtmp(frames_and_audio, rtmp_url: str, fps: int = None,
                 audio=None, rate: int = None, silent: bool = True):
     """Continuous RTMP push (long-lived). Input should never end.
 
     AUDIO+VIDEO (Stage 7 / audit F-2.5): feed a real SNES bed so `--stream` is
     not video-only. `frames_and_audio` yields, per aired frame, either:
-      * ``(np.ndarray, bytes)`` -- one frame PLUS its PCM16 chunk (locked, __preferred__);
+      * ``(np.ndarray, bytes)`` -- one frame PLUS its PCM16 chunk (locked, preferred);
       * ``np.ndarray``          -- a bare video frame (video-only / audio=None).
     Each PCM chunk is muxed through per-frame AAC (aresample=async +
     asetnsamples) so the pushed stream carries a real aac track locked one chunk
-    per video frame.
+    per video frame. The pair-iterator form auto-enables the aac audio path even
+    when the `audio` arg is unset.
 
     stderr is ALWAYS surfaced (never DEVNULL) in stream mode so a dead push is
     not silent: when ffmpeg drops the connection it logs to stderr and the
     BrokenPipeError ends the loop loudly rather than muffling the failure.
-    (`silent`/`audio` are accepted for call-compat with the bytes shape but the
-    pair-iterator form is preferred; passing `audio` alongside a pair iterator
-    is ignored.)
+    (`silent` is accepted for call-compat but has no effect on stderr here.)
 
     Returns ffmpeg's return code (0 on clean end / non-zero if the push failed).
     """
     fps = fps or SETTINGS.rate
     rate = rate or 22050
+    it = iter(frames_and_audio)
+    # Peek the first item: a (frame, pcm_chunk) pair means the push carries its own
+    # locked audio, so the ffmpeg mux must include an aac input.
+    try:
+        first = next(it)
+    except StopIteration:
+        first = _END
+        has_audio = audio is not None
+        chunk_iter = iter(())
+    else:
+        has_audio = audio is not None or isinstance(first, tuple)
+        chunk_iter = iter(())
+        if not has_audio and audio is not None:
+            chunk_iter = iter(_iter_pcm_chunks(bytes(audio), fps, rate))
     cmd = [_ffmpeg(), "-re", "-y"]
     cmd += _base_cmd("rgb24", fps)
-    has_audio = audio is not None
     cmd += _audio_input(rate) if has_audio else []
     if has_audio:
         cmd += ["-af", "aresample=async=1:first_pts=0,asetnsamples=n=1024"]
@@ -172,14 +186,8 @@ def stream_rtmp(frames_and_audio, rtmp_url: str, fps: int = None,
     # visible to the operator/watchdog, not swallowed.
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                             stderr=None)
-    # normalize an external audio source into a chunk iterator for the fallback
-    # path; the pair-iterator form carries its own locked audio and wins.
-    if not has_audio and audio is not None:
-        chunks = iter(_iter_pcm_chunks(bytes(audio), fps, rate))
-    else:
-        chunks = iter(())
     try:
-        for item in frames_and_audio:
+        def _emit(item):
             if isinstance(item, tuple):
                 arr, chunk = item
                 proc.stdin.write(np.ascontiguousarray(arr[:, :, :3], dtype=np.uint8).tobytes())
@@ -188,9 +196,13 @@ def stream_rtmp(frames_and_audio, rtmp_url: str, fps: int = None,
                 arr = item
                 proc.stdin.write(np.ascontiguousarray(arr[:, :, :3], dtype=np.uint8).tobytes())
                 try:
-                    proc.stdin.write(next(chunks))
+                    proc.stdin.write(next(chunk_iter))
                 except StopIteration:
                     pass
+        if first is not _END:
+            _emit(first)
+        for item in it:
+            _emit(item)
         proc.stdin.close()
     except (BrokenPipeError, OSError):
         # ffmpeg dropped the connection (RTMP server unreachable / publisher
