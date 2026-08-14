@@ -64,18 +64,62 @@ class Renderer:
         bg = assets.background(set_name)
         canvas.alpha_composite(bg, (0, 0))
 
+    @staticmethod
+    def active_beat(segment: broadcast.BroadcastSegment, frame: int):
+        """Return (beat, beat_local_frame) for a global segment frame.
+
+        The active beat is chosen by CUMULATIVE beat duration (Stage 5, F-1.1):
+        each beat holds the screen for `beat.frames` frames, not the static
+        `frame//90` slide, so animation cadence is driven by the beat's own
+        length. Falls back to the last beat for any out-of-range frame.
+        """
+        beats = segment.beats or []
+        if not beats:
+            return None, 0
+        total = sum(max(1, b.frames or 1) for b in beats)
+        local = frame % total
+        acc = 0
+        for b in beats:
+            dur = max(1, b.frames or 1)
+            if local < acc + dur:
+                return b, local - acc
+            acc += dur
+        last = beats[-1]
+        return last, acc
+
+    @staticmethod
+    def _motion_for(c: broadcast.Cast, beat: Optional[broadcast.Beat]) -> str:
+        """Per-cast motion for a frame: the ACTIVE beat's speaker animates with
+        the beat's motion (talk/happy/walk/wave -- F-1.1); everyone else stays
+        in the library's idle clip. `Cast.motion` is no longer authoritative
+        (Gary built every cast as 'idle')."""
+        if beat is not None and c.name == beat.speaker:
+            return beat.motion or "idle"
+        return "idle"
+
     def draw_cast(self, canvas: Image.Image, segment: broadcast.BroadcastSegment,
-                  frame: int):
-        """Place + animate cast (movement library drives pose selection)."""
+                  frame: int, beat: Optional[broadcast.Beat] = None,
+                  walk_offset: float = 0.0):
+        """Place + animate cast (movement library drives pose selection).
+
+        Stage 5 (F-1.1): pose comes from the ACTIVE beat's motion for the
+        speaker (feed Beat.motion through), not the frozen Cast.motion. A
+        `walk` motion also slides the cast member horizontally across the slot
+        so movement is a real cross, not a 2-frame bob.
+        """
         n = len(segment.cast)
         base_w = 16 * 2           # 2x native sprite width
         spacing = WN // max(1, n + 1)   # (n1) was `(WN - base_w * 0)` -- dead multiply
         for i, c in enumerate(segment.cast):
-            poses, fps, loop = movement_library.play(c.name, c.motion or "idle")
+            motion = self._motion_for(c, beat)
+            poses, fps, loop = movement_library.play(c.name, motion)
             pose = poses[int(frame // max(1, round(6 / fps))) % len(poses)]
             img = self.bank.image(c.kind, pose)
             x = spacing * (i + 1) + base_w // 4
             y = HN - 46            # feet near dialogue box
+            # walk motion: a real cross-slot slide (F-1.1, acceptance-1)
+            if motion == "walk":
+                x = int(x + walk_offset)
             canvas.alpha_composite(img, (int(x), int(y)))
 
     # Frank's first directive: SNES-native dialogue box
@@ -172,14 +216,15 @@ class Renderer:
         """Render one broadcast frame (native 256x224, pre-scanlines)."""
         canvas = Image.new("RGBA", NATIVE, (0, 0, 0, 255))
         self.draw_background(canvas, segment.background)
-        self.draw_cast(canvas, segment, frame)
+        # Stage 5 (F-1.1): the ACTIVE beat drives cast motion + dialogue cadence.
+        beat, beat_frame = self.active_beat(segment, frame)
+        walk_offset = (frame % 60 - 30) if (beat and beat.motion == "walk") else 0.0
+        self.draw_cast(canvas, segment, beat_frame, beat=beat, walk_offset=walk_offset)
 
-        # dialogue from the active beat
-        if segment.beats:
-            beat = segment.beats[frame % len(segment.beats)] \
-                if len(segment.beats) < 2 else segment.beats[(frame // 90) % len(segment.beats)]
+        # dialogue from the active beat (typewriter paced by beat-local frame)
+        if beat is not None:
             cast_map = {c.name: c.kind for c in segment.cast}
-            chars = (frame % 90) * 2
+            chars = (beat_frame % 90) * 2
             self.draw_dialogue(canvas, beat.speaker, beat.text, chars, cast_map)
 
         self.draw_rating(canvas, segment.rating)
@@ -213,12 +258,15 @@ def render_segment(segment: broadcast.BroadcastSegment,
 
     Renders bumper -> show beats (with commercials/promos interleaved) ->
     hand-off. Each yielded array is a full final-resolution frame for ffmpeg.
+
+    Stage 5 (F-1.1): the show pass length is driven by the SUM of the beats'
+    own `frames` durations (scaled by fps), not a rate-based `1 beat/sec` guess,
+    so each beat's animation actually plays out.
     """
     r = renderer or Renderer()
     rate = fps or SETTINGS.rate
-    # ~1 beat/sec of show; duration in frames honors the fps rate (n3), so
-    # raising fps yields proportionally more frames for the same wall time.
-    frames_total = max(1, int(rate * (len(segment.beats) or 1)))
+    beat_frames = sum(max(1, b.frames or 1) for b in (segment.beats or []))
+    frames_total = max(1, int(rate / max(1, (SETTINGS.rate or 24)) * beat_frames))
     # bumper lead-in
     for f in range(20):
         if not segment.bumper:
