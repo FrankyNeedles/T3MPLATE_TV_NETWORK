@@ -464,9 +464,11 @@ class LivingWorld:
                 rel.events = rel.events or []
                 delta = self._airing_delta(rel.score, tension)
                 rel.score = max(-100, min(100, rel.score + delta))
-                # popularity mean-reverts toward the celebrity baseline (plays
-                # the whole world's fame, not a per-pair on/off ratchet).
-                pop_delta = self._pop_delta(rel.score, ca.popularity)
+                # popularity mean-reverts EACH co-host toward the celebrity
+                # baseline from their OWN value (plays the whole world's fame,
+                # not a single shared delta; nobody pins at 100/0 forever).
+                pop_delta_a = self._pop_delta(rel.score, ca.popularity)
+                pop_delta_b = self._pop_delta(rel.score, cb.popularity)
                 cause = f"co-hosted on {show}" if show else "aired together"
                 # every mutation carries a reason + the causal chain link
                 rel.events.append({"event": cause, "delta": delta,
@@ -476,12 +478,12 @@ class LivingWorld:
                                    "caused_by_event_id": root,
                                    "date": datetime.now().isoformat()})
                 self._note(f"{a} & {b} {cause} (score {rel.score}, "
-                           f"{pop_delta:+.0f} pop)",
+                           f"{(pop_delta_a + pop_delta_b) / 2:+.0f} pop)",
                            reason=f"{a} & {b} {cause} during {season['season']} "
                                   f"{season['holiday']}".strip(),
                            outcome=outcome, caused_by_event_id=root)
-                ca.popularity = min(100, max(0, ca.popularity + pop_delta))
-                cb.popularity = min(100, max(0, cb.popularity + pop_delta))
+                ca.popularity = min(100, max(0, ca.popularity + pop_delta_a))
+                cb.popularity = min(100, max(0, cb.popularity + pop_delta_b))
         # bump the show rating gently (performance, not dice)
         if show:
             s = self.session.query(Show).filter_by(name=show).first()
