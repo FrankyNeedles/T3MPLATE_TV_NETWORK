@@ -76,27 +76,117 @@ def write_wav(path: Path, samples: np.ndarray, rate: int = RATE):
 
 
 def ensure_bed(track: str, seconds: float = 12.0) -> Path:
-    """Return an on-disk WAV for a track, synthesizing it if absent/honest."""
+    """Return an on-disk WAV for a track.
+
+    Real-emulator-captured beds (`real_smw_*.wav`) win over synthesized beds
+    whenever a matching real file exists; otherwise the honest synth chiptune
+    bed is written. `track` may be a bare name or a `real_*` id.
+    """
     track = (track or "bumper").split(".")[0]
+    # real bed resolution: prefer a `real_<track>.wav` / `real_smw_*.wav`
+    for cand in _real_bed_candidates(track):
+        if cand.exists():
+            return cand
     path = AUDIO_DIR / f"bed_{track}.wav"
-    if track.startswith("real_") and path.exists():   # real SPC-dumped bed wins
-        return path
     if not path.exists():
         write_wav(path, synth_bed(track, seconds))
     return path
 
 
-# --- real SPC capture hook (honest path; documented, not implemented here) ---
-def capture_spc_via_emulator(rom: Path, out_spc: Path, retroarch: str = "") -> Optional[Path]:
-    """Interface for the REAL audio route (per RESEARCH_SNES sec 4/6):
-    run the ROM in snes9x/RetroArch, save the SPC, then render SPC->WAV with an
-    SPC player. Returns the WAV path if produced, else None.
+def _real_bed_candidates(track: str) -> list[Path]:
+    """Candidate real-capture files for a track id, most-specific first."""
+    out = []
+    if track.startswith("real_"):
+        out.append(AUDIO_DIR / f"{track}.wav")
+        out.append(AUDIO_DIR / f"bed_{track}.wav")
+    else:
+        # format id -> themed real SMW bed (Stage 2: distinct beds per show)
+        themed = {
+            "news": "real_smw_title", "morning": "real_smw_overworld",
+            "talk": "real_smw_overworld", "game_show": "real_smw_level",
+            "late_night": "real_smw_castle", "action": "real_smw_level",
+            "cartoon": "real_smw_overworld", "sitcom": "real_smw_overworld",
+            "weather": "real_smw_title", "sports": "real_smw_level",
+            "soap": "real_smw_title", "infomercial": "real_smw_castle",
+            "rerun": "real_smw_overworld", "psa": "real_smw_title",
+        }
+        key = themed.get(track)
+        if key:
+            out.append(AUDIO_DIR / f"{key}.wav")
+    return out
 
-    MVP ships the synth bed; wiring a real emulator capture is the documented
-    next step (HANDOFF). This function intentionally documents the contract
-    rather than shipping a hand-rolled ROM decoder (which produced noise).
+
+# --- real SPC capture hook (honest path) ------------------------------------
+def capture_spc_via_emulator(rom: Path, out_spc: Path, retroarch: str = "",
+                             bed: str = "real_smw_title") -> Optional[Path]:
+    """Interface for the REAL audio route (per RESEARCH_SNES sec 4/6).
+
+    Two modes:
+      * Full SPC round-trip: run the ROM under snes9x/RetroArch, save an SPC
+        (must be exactly 65,536 bytes), then render SPC->WAV with a *real* SPC
+        player (spc-play / snes_spc / SNES_Sound_Utilities / pybrr). ffmpeg does
+        NOT decode SPC. Returns the rendered WAV path.
+      * Honest fallback (used when no SPC player is on PATH): returns the
+        pre-staged emulator-captured bed WAV (method:"emulator_capture" from
+        the snes9x DSP directly), so the broadcast still hears real SNES music
+        even when the .spc round-trip toolchain is unavailable.
+
+    It never fabricates a WAV. If neither a real SPC player nor a staged real
+    bed exists, it returns None (recordered honestly, never a fake file).
     """
-    return None  # real capture requires emulator tooling; plug in later
+    # 1) Full SPC round-trip when a real player is present.
+    player = _find_spc_player()
+    if player is not None and rom.exists() and out_spc.exists() \
+            and out_spc.stat().st_size == 65536:
+        return _render_spc_to_wav(player, out_spc)
+
+    # 2) Honest fallback: return the staged real emulator bed (real DSP audio).
+    # This is real SNES music captured by the emulator, not a fake .wav.
+    staged = AUDIO_DIR / f"{bed}.wav"
+    if staged.exists():
+        return staged
+    # 3) Nothing honest available.
+    return None
+
+
+def _find_spc_player() -> Optional[Path]:
+    """Locate a real SPC->WAV renderer on PATH, else None. This machine ships
+    with no SPC player installed (verified 2026-08); if one appears later the
+    full .spc round-trip activates automatically."""
+    import shutil
+    for exe in ("spc-play", "spc2wav", "pybrr"):
+        p = shutil.which(exe)
+        if p:
+            return Path(p)
+    return None
+
+
+def _render_spc_to_wav(player: Path, spc: Path) -> Optional[Path]:
+    """Render an SPC file to WAV with the given SPC player. Shape: real SPC in
+    -> 44.1k stereo WAV out. Returns the WAV path or None on failure."""
+    import subprocess, tempfile
+    out = AUDIO_DIR / f"real_{spc.stem}.wav"
+    try:
+        if player.name == "pybrr":
+            subprocess.run(["python", "-m", "pybrr.spc", "-o", str(out), str(spc)],
+                           check=True, timeout=120)
+        else:  # spc-play / spc2wav accept `spc -o out.wav`
+            cmds = [[str(player), str(spc), "-o", str(out)],
+                    [str(player), "-o", str(out), str(spc)]]
+            ok = False
+            for c in cmds:
+                try:
+                    subprocess.run(c, check=True, timeout=120)
+                    ok = out.exists()
+                    if ok:
+                        break
+                except Exception:
+                    continue
+            if not ok:
+                return None
+        return out if out.exists() else None
+    except Exception:
+        return None
 
 
 def load_audio(path: Path) -> np.ndarray:

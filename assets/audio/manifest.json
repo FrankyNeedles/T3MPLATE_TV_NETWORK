@@ -1,0 +1,58 @@
+[
+  {
+    "asset_id": "audio_real_smw_title",
+    "bed": "title",
+    "file": "real_smw_title.wav",
+    "game": "Super Mario World (USA) [SNES]",
+    "rom_sha256": "0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b",
+    "method": "emulator_capture",
+    "emulator": "RetroArch 1.22.2 + snes9x libretro core",
+    "capture": "snes9x DSP audio -> built-in FFmpeg record -> mono 22050 WAV",
+    "sha256": "4dd84a6d9463f33f",
+    "rms": 0.0399,
+    "non_silent": true,
+    "note": "Real SMW theme rendered by the SPC700/SPC-DSP (no hand-rolled BRR decode)."
+  },
+  {
+    "asset_id": "audio_real_smw_overworld",
+    "bed": "overworld",
+    "file": "real_smw_overworld.wav",
+    "game": "Super Mario World (USA) [SNES]",
+    "rom_sha256": "0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b",
+    "method": "emulator_capture",
+    "emulator": "RetroArch 1.22.2 + snes9x libretro core",
+    "capture": "snes9x DSP audio -> built-in FFmpeg record -> mono 22050 WAV",
+    "sha256": "2499e5ab459c8d91",
+    "rms": 0.0483,
+    "non_silent": true,
+    "note": "Real SMW theme rendered by the SPC700/SPC-DSP (no hand-rolled BRR decode)."
+  },
+  {
+    "asset_id": "audio_real_smw_level",
+    "bed": "level",
+    "file": "real_smw_level.wav",
+    "game": "Super Mario World (USA) [SNES]",
+    "rom_sha256": "0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b",
+    "method": "emulator_capture",
+    "emulator": "RetroArch 1.22.2 + snes9x libretro core",
+    "capture": "snes9x DSP audio -> built-in FFmpeg record -> mono 22050 WAV",
+    "sha256": "a88b10ec9a3d3b18",
+    "rms": 0.0497,
+    "non_silent": true,
+    "note": "Real SMW theme rendered by the SPC700/SPC-DSP (no hand-rolled BRR decode)."
+  },
+  {
+    "asset_id": "audio_real_smw_castle",
+    "bed": "castle",
+    "file": "real_smw_castle.wav",
+    "game": "Super Mario World (USA) [SNES]",
+    "rom_sha256": "0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b",
+    "method": "emulator_capture",
+    "emulator": "RetroArch 1.22.2 + snes9x libretro core",
+    "capture": "snes9x DSP audio -> built-in FFmpeg record -> mono 22050 WAV",
+    "sha256": "d81e7f767b62583c",
+    "rms": 0.049,
+    "non_silent": true,
+    "note": "Real SMW theme rendered by the SPC700/SPC-DSP (no hand-rolled BRR decode)."
+  }
+]
