@@ -95,26 +95,27 @@ def test_different_seeds_produce_different_dialogue(g):
 
 
 def test_runner_mints_fresh_seed_per_airing(world, monkeypatch, tmp_path):
-    """GAP-3 -- _record_cycle hands a fresh seed to decide() every pass."""
+    """GAP-3 -- _next_seed mints a distinct seed per airing, and _decide_differing
+    picks a segment whose dialogue differs from the previous airing."""
     from tvn import runner
-    seen = []
+    seeds = [runner._next_seed() for _ in range(4)]
+    assert len(set(seeds)) == len(seeds), "seeds must be distinct per airing (GAP-3)"
+
     class _Seg:
-        fmt = "news"; title = "News"; daypart = "day"; cast = []; seg_id = "s"
+        fmt = "news"; title = "News"; daypart = "day"; seg_id = "s"
+        def __init__(self, text): self.cast = []; self.beats = [type("B", (), {"text": text})()]
+    calls = []
     class _G:
         def decide(self, slot, seed=None):
-            seen.append(seed)
-            return _Seg()
-    class _W:
-        def on_air(self, *a, **k): pass
-    monkeypatch.setattr(runner, "segment_frames",
-                        lambda seg, seconds, renderer_=None: iter([]))
-    monkeypatch.setattr(runner, "segment_audio",
-                        lambda seg, seconds, fmt="": b"")
-    monkeypatch.setattr(runner.output, "write_video", lambda *a, **k: a[1])
-    for _ in range(3):
-        runner._record_cycle(_W(), _G(), tmp_path, seconds=1.0)
-    assert len(seen) == 3
-    assert len(set(seen)) == 3   # distinct per airing
+            calls.append(seed)
+            # alternate dialogue so the guard sees a change on the 2nd try
+            idx = (seed if seed is not None else 0) % 3
+            return _Seg(f"airing-{idx}")
+    seg1 = runner._decide_differing(_G(), None, 1000)
+    seg2 = runner._decide_differing(_G(), None, 1001)
+    assert [b.text for b in seg1.beats] != [b.text for b in seg2.beats]
+    assert len(calls) >= 2
+
 
 
 # ---- Causal world chain (RESEARCH I3 / canon discipline) --------------------
