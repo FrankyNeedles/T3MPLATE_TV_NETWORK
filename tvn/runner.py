@@ -19,6 +19,7 @@ from typing import Iterator, Optional
 import numpy as np
 
 from . import programming, gary, renderer, output, audio
+from .broadcast import BroadcastSegment
 from .config import SETTINGS
 from .world import open_world
 
@@ -77,6 +78,8 @@ _last_tick_ts: Optional[float] = None
 # per-airing seed counter (GAP-3): every pass mints a fresh seed so the next
 # chunk is NOT byte-identical to the last, even in the same grid slot.
 _pass_counter = 0
+# last aired dialogue signature (guards CONSECUTIVE chunks from byte-identity)
+_last_beats: Optional[tuple[str, ...]] = None
 
 
 def _next_seed() -> int:
@@ -85,10 +88,29 @@ def _next_seed() -> int:
     return int(time.time() * 1000) + _pass_counter
 
 
+def _decide_differing(g, slot, base_seed: int) -> BroadcastSegment:
+    """Decide a segment whose dialogue differs from the previously aired one, so
+    consecutive airings are never byte-identical (GAP-3). Bounded: if every seed
+    in a small window collides, accept the last (never infinite)."""
+    global _last_beats
+    chosen = None
+    for i in range(8):
+        seg = g.decide(slot, seed=base_seed + i)
+        beats = getattr(seg, "beats", [])
+        sig = tuple(b.text for b in beats)
+        if _last_beats is None or sig != _last_beats:
+            chosen = seg
+            break
+        chosen = seg
+    beats = getattr(chosen, "beats", [])
+    _last_beats = tuple(b.text for b in beats)
+    return chosen
+
+
 def _record_cycle(world, g, out_dir: Path, seconds: float = 12.0) -> Path:
     seed = _next_seed()
     slot = programming.get_slot()
-    seg = g.decide(slot, seed=seed)
+    seg = _decide_differing(g, slot, seed)
     world.on_air([c.name for c in seg.cast], show=seg.title,
                  tension=2 if seg.daypart in ("prime", "access") else 0)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
