@@ -58,6 +58,18 @@ _ADD_COLUMNS = {
 }
 
 
+
+# Directed relationship story arcs (Stage 3/F-3.2). A shared source of truth so
+# fresh-seed (_seed_now) and the live-DB backfill (_backfill_relationship_arcs)
+# apply the SAME arcs to the SAME bonds.
+RELATIONSHIP_ARCS = {
+    ("mario", "luigi"): "Brothers Reunited",
+    ("peach", "mario"): "Royal Alliance",
+    ("yoshi", "mario"): "Steadfast Sidekick",
+    ("link", "zelda"): "Hyrule Trust",
+    ("mario", "bowser"): "The Eternal Rivalry",
+    ("wario", "luigi"): "Rivalry Brewing",
+}
 class Base(DeclarativeBase):
     pass
 
@@ -176,6 +188,7 @@ class LivingWorld:
         self.session = self.Session()
         self._seed()
         self._seed_season_state()
+        self._backfill_relationship_arcs()
 
     def _migrate_if_stale(self):
         """Rebuild the schema if an old-schema DB (missing columns) is present."""
@@ -271,16 +284,10 @@ class LivingWorld:
             self._add_rel(names[a], names[b], s)
         for a, b, s in content.SEED_FEUDS:
             self._add_rel(names[a], names[b], s)
-        # directed relationship arcs (Stage 3): each seeded bond carries a story
-        # arc so feuds/friendships read as evolving, not flat scores.
-        arcs = {
-            ("mario", "luigi"): "Brothers Reunited",
-            ("peach", "mario"): "Royal Alliance",
-            ("yoshi", "mario"): "Steadfast Sidekick",
-            ("link", "zelda"): "Hyrule Trust",
-            ("mario", "bowser"): "The Eternal Rivalry",
-            ("wario", "luigi"): "Rivalry Brewing",
-        }
+        # directed relationship arcs (Stage 3, F-3.2): each seeded bond carries a
+        # story arc so feuds/friendships read as evolving, not flat scores. Uses
+        # the same source of truth as the migration backfill.
+        arcs = RELATIONSHIP_ARCS
         for (a, b), label in arcs.items():
             target = self._find_rel(names[a], names[b])
             if target is None:
@@ -307,6 +314,30 @@ class LivingWorld:
                                   episode_count=1,
                                   episode_title=title_pool[0],
                                   arc_label="Series Premiere"))
+
+
+    def _backfill_relationship_arcs(self):
+        """Idempotently backfill empty relationship arc labels (F-3.2).
+
+        Runs on EVERY open, not only on a fresh DB. A persistent DB that got the
+        `arc_label` column via _add_new_columns but was never re-seeded now gets
+        its real arcs filled in -- and re-running is a safe no-op for ones that
+        already carry a label.
+        """
+        names = {c.name: c.id for c in self.session.query(Character).all()}
+        for (a, b), label in RELATIONSHIP_ARCS.items():
+            if a not in names or b not in names:
+                continue
+            rel = self._find_rel(names[a], names[b])
+            if rel is None:
+                rel = Relationship(character1_id=min(names[a], names[b]),
+                                   character2_id=max(names[a], names[b]),
+                                   score=0, events=[])
+                self.session.add(rel)
+            # idempotent: never overwrite an existing arc label
+            if not rel.arc_label:
+                rel.arc_label = label
+        self.session.commit()
 
     def _add_rel(self, a, b, score):
         self.session.add(Relationship(character1_id=min(a, b),
@@ -429,7 +460,8 @@ class LivingWorld:
 
     def on_air(self, cast: list[str], show: Optional[str] = None,
                tension: int = 0, outcome: str = "aired",
-               caused_by_event_id: Optional[int] = None):
+               caused_by_event_id: Optional[int] = None,
+               genre: Optional[str] = None):
         """Record that a beat/show aired; apply CAUSAL relationship/career deltas.
 
         Co-hosts who work together gently drift according to how the segment went
@@ -487,7 +519,19 @@ class LivingWorld:
         # bump the show rating gently (performance, not dice)
         if show:
             s = self.session.query(Show).filter_by(name=show).first()
-            if s and s.rating > 0:
+            if s is None:
+                # F-3.1: production passes GRID-SLOT titles (e.g. "Super
+                # Playhouse") that never match a seeded "X of T3TV" show, so
+                # episode_count/title/rating never advanced in the real 24/7
+                # loop. Upsert a real Show from the slot title + genre so
+                # continuity actually moves on-air.
+                s = Show(name=show, status="series", genre=genre or "news",
+                         rating=7.0, hosts=cast, episode_count=0,
+                         episode_title="Series Premiere",
+                         arc_label=f"{self.current_season()['season']} Sweeps Run")
+                self.session.add(s)
+                self.session.flush()
+            if s.rating > 0:
                 s.rating = round(0.9 * s.rating + 0.1 * (7.0 + max(-2, min(2, tension))), 1)
                 s.airings += 1
                 # episode continuity (Stage 3): every airing advances the episode

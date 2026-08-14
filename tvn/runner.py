@@ -65,7 +65,8 @@ def run_once(seconds: float = 30.0, out: Optional[Path] = None,
     seg = g.decide(slot)
     # causal feedback: co-hosts on this show drift + ratings move
     world.on_air([c.name for c in seg.cast], show=seg.title,
-                 tension=2 if seg.daypart in ("prime", "access") else 0)
+                 tension=2 if seg.daypart in ("prime", "access") else 0,
+                 genre=seg.fmt)
     out = out or (SETTINGS.recordings_dir / f"{seg.seg_id}.mp4")
     center = renderer.Renderer()
     frames = segment_frames(seg, seconds=seconds, renderer_=center)
@@ -112,7 +113,8 @@ def _record_cycle(world, g, out_dir: Path, seconds: float = 12.0) -> Path:
     slot = programming.get_slot()
     seg = _decide_differing(g, slot, seed)
     world.on_air([c.name for c in seg.cast], show=seg.title,
-                 tension=2 if seg.daypart in ("prime", "access") else 0)
+                 tension=2 if seg.daypart in ("prime", "access") else 0,
+                 genre=seg.fmt)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out = out_dir / f"{stamp}_{slot.fmt}.mp4"
     dur = seconds
@@ -144,7 +146,8 @@ def run_forever(stream: bool = False, record_dir: Optional[Path] = None,
                         slot = programming.get_slot()
                         seg = g.decide(slot, seed=_next_seed())
                         world.on_air([c.name for c in seg.cast], show=seg.title,
-                                     tension=2 if seg.daypart in ("prime", "access") else 0)
+                                     tension=2 if seg.daypart in ("prime", "access") else 0,
+                                     genre=seg.fmt)
                         renderer_ = renderer.Renderer()
                         for arr in segment_frames(seg, seconds=seconds, renderer_=renderer_):
                             yield arr
