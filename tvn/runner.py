@@ -52,8 +52,8 @@ def segment_frames(seg, fps: int = None, seconds: Optional[float] = None,
                 return
 
 
-def segment_audio(seg, seconds: float, fmt: str = "") -> bytes:
-    return output.raw_audio_bytes(audio.mixer.track_for(fmt or seg.fmt, seconds))
+def segment_audio(seg, seconds: float, fmt: str = "", variant: int = 0) -> bytes:
+    return output.raw_audio_bytes(audio.mixer.track_for(fmt or seg.fmt, seconds, variant))
 
 
 def run_once(seconds: float = 30.0, out: Optional[Path] = None,
@@ -69,7 +69,7 @@ def run_once(seconds: float = 30.0, out: Optional[Path] = None,
     out = out or (SETTINGS.recordings_dir / f"{seg.seg_id}.mp4")
     center = renderer.Renderer()
     frames = segment_frames(seg, seconds=seconds, renderer_=center)
-    a = segment_audio(seg, seconds)
+    a = segment_audio(seg, seconds, variant=_pass_counter)
     output.write_video(frames, out, audio=a)
     return out
 
@@ -117,7 +117,7 @@ def _record_cycle(world, g, out_dir: Path, seconds: float = 12.0) -> Path:
     out = out_dir / f"{stamp}_{slot.fmt}.mp4"
     dur = seconds
     frames = segment_frames(seg, seconds=dur)
-    a = segment_audio(seg, dur)
+    a = segment_audio(seg, dur, variant=seed)
     output.write_video(frames, out, audio=a)
     return out
 
@@ -139,20 +139,40 @@ def run_forever(stream: bool = False, record_dir: Optional[Path] = None,
 
     if stream and SETTINGS.rtmp_url:
 
-        def frames_forever():
+                def stream_av_forever():
+                    """Yield (frame, pcm_chunk) pairs, AUDIO+VIDEO locked (Stage 7).
+
+                    One cycle = one slot's segment. We decide the segment ONCE, then
+                    render its frames and its bed audio together, chunking the audio
+                    one PCM chunk per video frame -- so the on-screen segment and the
+                    aired music are the SAME segment (no A/V drift across the push).
+                    A per-airing `variant` keeps same-slot consecutive airings from
+                    being byte-identical in AUDIO too (audit F-2.5), not just video.
+                    """
+                    fps = SETTINGS.rate
+                    rate = audio.RATE
+                    chunk_cyc = max(2, round(rate / fps)) * 2  # bytes per video frame
                     while True:
                         slot = programming.get_slot()
                         seg = g.decide(slot, seed=_next_seed())
                         world.on_air([c.name for c in seg.cast], show=seg.title,
                                      tension=2 if seg.daypart in ("prime", "access") else 0)
                         renderer_ = renderer.Renderer()
-                        for arr in segment_frames(seg, seconds=seconds, renderer_=renderer_):
-                            yield arr
+                        frames = segment_frames(seg, seconds=seconds, renderer_=renderer_)
+                        pcm = output.raw_audio_bytes(audio.mixer.track_for(
+                            seg.fmt, seconds, variant=_pass_counter))
+                        for i, arr in enumerate(frames):
+                            chunk = pcm[i * chunk_cyc:]
+                            if chunk:
+                                chunk = chunk[:chunk_cyc]
+                            else:
+                                chunk = b"\x00\x00" * (chunk_cyc // 2)
+                            yield arr, chunk
 
-        url_redacted = SETTINGS.rtmp_url.replace(SETTINGS.twitch_stream_key, "***")
-        print(f"Streaming (video-only MVP) to {url_redacted} ...")
-        output.stream_rtmp(frames_forever(), SETTINGS.rtmp_url, silent=False)
-        return
+                url_redacted = SETTINGS.rtmp_url.replace(SETTINGS.twitch_stream_key, "***")
+                print(f"Streaming (audio+video) to {url_redacted} ...")
+                output.stream_rtmp(stream_av_forever(), SETTINGS.rtmp_url)
+                return
 
     # record mode: 24/7 append-only MP4 chunks
     print(f"Recording broadcast chunks to {record_dir} (Ctrl+C to stop).")

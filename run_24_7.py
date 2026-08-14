@@ -4,8 +4,8 @@
 Runs the network continuously:
   * default: records an append-only MP4 chunk per aired segment into
     OUTPUT/recordings/ and advances the world (24/7, Ctrl+C to stop).
-  * --stream: pushes a live video feed to Twitch using the TWITCH_STREAM_KEY
-    from .env (video-only in this MVP).
+  * --stream: pushes a live audio+video feed to Twitch using the TWITCH_STREAM_KEY
+      from .env (real SNES bed audio muxed per-frame, Stage 7).
 
 Each cycle: fixed 90s grid slot -> Gary decides from world-state -> renders
 SNES dialogue + chrome with movement -> records/streams -> on_air() applies the

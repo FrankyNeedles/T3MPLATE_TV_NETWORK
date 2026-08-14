@@ -176,7 +176,7 @@ def test_record_cycle_honors_seconds(monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "segment_frames",
                         lambda seg, seconds, renderer_=None: (seen.__setitem__("s", seconds) or iter([])))
     monkeypatch.setattr(runner, "segment_audio",
-                        lambda seg, seconds, fmt="": (seen.__setitem__("a", seconds) or b""))
+                            lambda seg, seconds, fmt="", variant=0: (seen.__setitem__("a", seconds) or b""))
     monkeypatch.setattr(runner.output, "write_video", lambda *a, **k: a[1])
     runner._record_cycle(_W(), _G(), tmp_path, seconds=7.5)
     assert seen["s"] == 7.5 and seen["a"] == 7.5

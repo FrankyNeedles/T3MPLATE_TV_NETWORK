@@ -196,20 +196,39 @@ def load_audio(path: Path) -> np.ndarray:
 
 
 class Mixer:
-    """Provides an audio track for the ffmpeg mux, keyed by segment."""
+    """Provides an audio track for the ffmpeg mux, keyed by segment + variant.
+
+    ``track_for`` caches on ``fmt:seconds:variant``. The ``variant`` (a per-airing
+    monotonic/derived int) makes consecutive airings in the SAME slot carry
+    DIFFERENT audio (audit F-2.5: audio was byte-identical within a slot because
+    the cache key ignored anything but fmt+seconds). For a real emulator-captured
+    bed the variant rotates the *start phase* into the (up to 18 s) recording, so
+    the viewer still hears authentic SNES audio, just a different window of it --
+    never a fake/altered file, never byte-identical.
+    """
 
     def __init__(self):
         self._cache: dict[str, np.ndarray] = {}
 
-    def track_for(self, fmt: str, seconds: float):
-        key = f"{fmt}:{int(seconds)}"
+    def track_for(self, fmt: str, seconds: float, variant: int = 0):
+        key = f"{fmt}:{int(seconds)}:{variant}"
         if key in self._cache:
             return self._cache[key]
         bed = ensure_bed(fmt, min(seconds, 12.0))
-        data = load_audio(bed)
+        raw = load_audio(bed)                      # real (or synth) recording
+        data = np.copy(raw)
         if len(data) < int(seconds * RATE):
             reps = int(np.ceil(int(seconds * RATE) / len(data))) + 1
             data = np.tile(data, reps)
+        # novelty (audit F-2.5): rotate the start phase into the raw recording by
+        # `variant`, so same-slot consecutive airings differ (real audio, a
+        # different window of it -- never a fake/altered file, never byte-identical).
+        # Only rotate when the recording is longer than the requested seconds
+        # (else any window is the full loop and shifting is a no-op anyway).
+        if len(raw) > int(seconds * RATE):
+            step = max(1, len(raw) // 8)           # coarse phase step, in samples
+            offset = (variant % 8) * step
+            data = np.roll(data, -offset)
         self._cache[key] = data[: int(seconds * RATE)]
         return self._cache[key]
 
