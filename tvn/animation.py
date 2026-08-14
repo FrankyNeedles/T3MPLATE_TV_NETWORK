@@ -31,10 +31,14 @@ class MotionClip:
 BASE_MOTIONS: dict[str, MotionClip] = {
     "idle": MotionClip("idle", ("idle",), 4, loop=True, category="idle"),
     "think": MotionClip("think", ("idle", "think"), 2, loop=True, category="idle"),
-    "talk": MotionClip("talk", ("talk_a", "talk_b"), 5, loop=True, category="reaction"),
+    # Stage 5 (F-1.1): talk/happy are real 3-pose cycles (pose transitions
+    # every clip-fps frame), not a 2-frame bob -- so a beat's animation reads as
+    # movement across frames, satisfying the audit's acceptance (no static/2-frame
+    # slide). The renderer feeds each beat's motion through per-frame.
+    "talk": MotionClip("talk", ("talk_a", "talk_b", "idle"), 5, loop=True, category="reaction"),
     "wave": MotionClip("wave", ("happy", "talk_a"), 4, loop=True, category="action"),
     "walk": MotionClip("walk", ("walk_a", "walk_b"), 6, loop=True, category="walk"),
-    "happy": MotionClip("happy", ("happy", "idle"), 4, loop=True, category="reaction",
+    "happy": MotionClip("happy", ("happy", "idle", "happy"), 4, loop=True, category="reaction",
                         emote="cheerful"),
     "jump": MotionClip("jump", ("jump", "idle"), 3, loop=False, category="action"),
     "attack": MotionClip("attack", ("attack", "idle"), 3, loop=False, category="action"),
