@@ -165,12 +165,14 @@ def test_record_cycle_honors_seconds(monkeypatch, tmp_path):
     class _Seg:
         fmt = "news"; title = "News"; daypart = "day"; seg_id = "s1"; cast = []
     class _G:
-        def decide(self, slot): return _Seg()
+        def decide(self, slot, seed=None):
+            seen["seed"] = seed
+            return _Seg()
     class _W:
         def on_air(self, *a, **k): pass
     class _Slot:
         fmt = "news"; daypart = "day"
-    monkeypatch.setattr(runner.programming, "get_slot", lambda: _Slot())
+        monkeypatch.setattr(runner.programming, "get_slot", lambda: _Slot())
     monkeypatch.setattr(runner, "segment_frames",
                         lambda seg, seconds, renderer_=None: (seen.__setitem__("s", seconds) or iter([])))
     monkeypatch.setattr(runner, "segment_audio",

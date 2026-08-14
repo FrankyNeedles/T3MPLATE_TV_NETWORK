@@ -74,10 +74,21 @@ def run_once(seconds: float = 30.0, out: Optional[Path] = None,
 
 
 _last_tick_ts: Optional[float] = None
+# per-airing seed counter (GAP-3): every pass mints a fresh seed so the next
+# chunk is NOT byte-identical to the last, even in the same grid slot.
+_pass_counter = 0
+
+
+def _next_seed() -> int:
+    global _pass_counter
+    _pass_counter += 1
+    return int(time.time() * 1000) + _pass_counter
+
 
 def _record_cycle(world, g, out_dir: Path, seconds: float = 12.0) -> Path:
+    seed = _next_seed()
     slot = programming.get_slot()
-    seg = g.decide(slot)
+    seg = g.decide(slot, seed=seed)
     world.on_air([c.name for c in seg.cast], show=seg.title,
                  tension=2 if seg.daypart in ("prime", "access") else 0)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -107,14 +118,14 @@ def run_forever(stream: bool = False, record_dir: Optional[Path] = None,
     if stream and SETTINGS.rtmp_url:
 
         def frames_forever():
-            while True:
-                slot = programming.get_slot()
-                seg = g.decide(slot)
-                world.on_air([c.name for c in seg.cast], show=seg.title,
-                             tension=2 if seg.daypart in ("prime", "access") else 0)
-                renderer_ = renderer.Renderer()
-                for arr in segment_frames(seg, seconds=seconds, renderer_=renderer_):
-                    yield arr
+                    while True:
+                        slot = programming.get_slot()
+                        seg = g.decide(slot, seed=_next_seed())
+                        world.on_air([c.name for c in seg.cast], show=seg.title,
+                                     tension=2 if seg.daypart in ("prime", "access") else 0)
+                        renderer_ = renderer.Renderer()
+                        for arr in segment_frames(seg, seconds=seconds, renderer_=renderer_):
+                            yield arr
 
         url_redacted = SETTINGS.rtmp_url.replace(SETTINGS.twitch_stream_key, "***")
         print(f"Streaming (video-only MVP) to {url_redacted} ...")
