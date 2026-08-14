@@ -218,7 +218,15 @@ class Renderer:
         self.draw_background(canvas, segment.background)
         # Stage 5 (F-1.1): the ACTIVE beat drives cast motion + dialogue cadence.
         beat, beat_frame = self.active_beat(segment, frame)
-        walk_offset = (frame % 60 - 30) if (beat and beat.motion == "walk") else 0.0
+        # A walk beat is a real CROSS: the speaker enters from off-screen left and
+        # glides to their slot across the first 70% of the beat (F-1.1 acceptance-1),
+        # instead of a 2-frame bob around a fixed spot.
+        walk_offset = 0.0
+        if beat is not None and beat.motion == "walk":
+            dur = max(1, beat.frames or 1)
+            prog = min(1.0, beat_frame / dur)
+            # slide from fully off-screen left (prog=0) to the slot (prog=1)
+            walk_offset = round(-WN * (1 - prog))
         self.draw_cast(canvas, segment, beat_frame, beat=beat, walk_offset=walk_offset)
 
         # dialogue from the active beat (typewriter paced by beat-local frame)
