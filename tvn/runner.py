@@ -167,14 +167,16 @@ def run_forever(stream: bool = False, record_dir: Optional[Path] = None,
 
 
 def _maybe_tick(world):
-    """Off-peak maintenance that NEVER blocks the render loop.
+    """Hourly maintenance that NEVER blocks the render loop (Stage 4 / BUG-2).
 
-    Runs the hourly world.tick() during the 2-4 AM quiet hours at most once per
-    hour (dropped the old time.sleep(3600), which froze the broadcast ~3h/day).
+    Runs world.tick() once per hour on a monotonic schedule regardless of the
+    wall-clock hour. The old code gated on hours {2,3,4} -- a broadcaster that
+    started at e.g. 9am could run for days without a single tick(), so decay /
+    career / seeking-work evolution never happened. Now tick() is guaranteed
+    roughly hourly from the moment the loop starts.
     """
     global _last_tick_ts
-    h = datetime.now().hour
     now = time.monotonic()
-    if h in (2, 3, 4) and (_last_tick_ts is None or now - _last_tick_ts >= 3600):
+    if _last_tick_ts is None or now - _last_tick_ts >= 3600:
         world.tick()
         _last_tick_ts = now
