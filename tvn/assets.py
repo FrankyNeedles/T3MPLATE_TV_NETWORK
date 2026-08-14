@@ -62,18 +62,30 @@ def gate_image(img: Image.Image, n_tiles: int = 8, kind: str = "sprite",
         # trimmed-to-content rip has bbox_ratio==1.0 by construction).
         hi = 400 if real_art else 15
         bbox_ok = (0.01 <= bbox_ratio <= 0.90) if not real_art else True
-        # real dense sprites (e.g. SMW Yoshi) legitimately fill ~98% of their
-        # trimmed box; only enforce the "not blank" floor (coverage>0.02) and
-        # the sparse cap for procedural placeholders.
         cov_ok = (0.02 <= coverage <= 0.95) if not real_art else (coverage >= 0.02)
-        ok = (
-            cov_ok
-            and bbox_ok
-            and 2 <= used_colors <= hi
-            and w >= 8 and h >= 8
-        )
+        # Stage 5 (F-1.4): the gate was loosened enough to certify a broken
+        # un-keyed frame as "ready" (98%-opaque Yoshi box, Bowser bottom-corner
+        # leak). Re-keyed frames must show TRANSPARENT margins -- at least 2 of
+        # the 4 frame corners must be clear -- and NOT be a near-100% opaque
+        # box, so an un-keyed background rectangle fails to "ready".
+        corner_opaque = (int(alpha[0, 0] > 0) + int(alpha[0, w - 1] > 0) +
+                         int(alpha[h - 1, 0] > 0) + int(alpha[h - 1, w - 1] > 0))
+        if real_art:
+            cov_ok = (0.05 <= coverage <= 0.95)
+            bbox_ok = True
+            # >=2 clear corners proves a real key was applied; an un-keyed box
+            # (like the old Yoshi, all 4 corners opaque) is rejected; a real
+            # key leaves at most one corner opaque (a sprite
+            # silhouette touching a corner); two opaque corners on
+            # an edge is the signature of an un-keyed leak.
+            transparent_ok = corner_opaque <= 1
+            ok = (cov_ok and bbox_ok and transparent_ok
+                  and 2 <= used_colors <= hi and w >= 8 and h >= 8)
+        else:
+            ok = (cov_ok and bbox_ok
+                  and 2 <= used_colors <= hi and w >= 8 and h >= 8)
+        checks["corner_opaque"] = corner_opaque
     return {"checks": checks, "all_passed": bool(ok), "width": w, "height": h, "kind": kind}
-
 
 # -- Set backgrounds ----------------------------------------------------------
 def _bg_canvas() -> Canvas:

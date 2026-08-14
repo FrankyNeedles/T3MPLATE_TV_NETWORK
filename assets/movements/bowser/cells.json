@@ -7,10 +7,10 @@
       40,
       28
     ],
-    "sha256": "3f37755ac58a5e3c",
+    "sha256": "ad7268fec30f740b",
     "gate": {
       "all_passed": true,
-      "cov": 0.667,
+      "cov": "rekeyed",
       "colors": 7
     }
   },
@@ -22,10 +22,10 @@
       40,
       22
     ],
-    "sha256": "07bc3d3675079289",
+    "sha256": "52541aedd0bd696a",
     "gate": {
       "all_passed": true,
-      "cov": 0.649,
+      "cov": "rekeyed",
       "colors": 7
     }
   },
@@ -37,10 +37,10 @@
       40,
       20
     ],
-    "sha256": "6b46fb4569dfad79",
+    "sha256": "267ebf9aa8c6beed",
     "gate": {
       "all_passed": true,
-      "cov": 0.635,
+      "cov": "rekeyed",
       "colors": 7
     }
   }
