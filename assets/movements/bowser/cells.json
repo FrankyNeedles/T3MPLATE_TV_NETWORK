@@ -1,0 +1,47 @@
+[
+  {
+    "pose": "idle",
+    "file": "bowser_idle.png",
+    "source": "bowser_f06.png",
+    "dims": [
+      40,
+      28
+    ],
+    "sha256": "3f37755ac58a5e3c",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.667,
+      "colors": 7
+    }
+  },
+  {
+    "pose": "walk_a",
+    "file": "bowser_walk_a.png",
+    "source": "bowser_f08.png",
+    "dims": [
+      40,
+      22
+    ],
+    "sha256": "07bc3d3675079289",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.649,
+      "colors": 7
+    }
+  },
+  {
+    "pose": "walk_b",
+    "file": "bowser_walk_b.png",
+    "source": "bowser_f10.png",
+    "dims": [
+      40,
+      20
+    ],
+    "sha256": "6b46fb4569dfad79",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.635,
+      "colors": 7
+    }
+  }
+]

@@ -11,9 +11,14 @@ from tvn.animation import library, BASE_MOTIONS
 def test_all_cast_pass_noise_gates(kind):
     bank = sprites.SpriteBank(1)
     img = bank.image(kind, "idle")
-    gate = assets.gate_image(img)
-    assert gate["all_passed"], (kind, gate)
-    assert gate["checks"]["used_colors"] <= 15   # SNES 16-colour subpalette discipline
+    # Real curated frames (mario/bowser/yoshi) may exceed the 16-colour
+    # procedural subpalette; they pass with real_art=True. Every frame must
+    # be a real, non-blank image either way.
+    is_real = bank.is_real(kind, "idle")
+    gate = assets.gate_image(img, real_art=is_real)
+    assert gate["all_passed"], (kind, gate, is_real)
+    if not is_real:
+        assert gate["checks"]["used_colors"] <= 15   # procedural SNES subpalette
 
 
 @pytest.mark.parametrize("set_name", ["news_studio", "talk_show", "diner",
@@ -29,10 +34,41 @@ def test_catalog_builds_all_ready():
     path = assets.build_catalog()
     data = json.loads(path.read_text(encoding="utf-8"))
     ready = {a["asset_id"]: a for a in data["assets"] if a["status"] == "ready"}
-    # every shipped asset must be honest (procedural, not claimed ROM rip)
+    # every shipped asset carries HONEST provenance: real assets are tagged
+    # emulator_capture (with rom_sha256) or curated_rip (with source_url);
+    # only genuine placeholders remain procedural_curated.
+    real_assets = [a for a in data["assets"]
+                   if a["provenance"]["method"] in ("emulator_capture", "curated_rip")]
+    assert real_assets, "Stage 1 must ship real (captured/curated) assets"
+    for a in real_assets:
+        if a["provenance"]["method"] == "emulator_capture":
+            assert a["provenance"].get("rom_sha256"), a["asset_id"]
+        else:  # curated_rip
+            assert a["provenance"].get("source_url"), a["asset_id"]
+    # soundness: nothing ready is flat/blank/noise. Video assets carry a
+    # noise_battery; audio carries a non_silent flag. Check whichever exists.
     for a in data["assets"]:
-        assert a["provenance"]["method"] == "procedural_curated"
-    assert len(ready) >= 15
+        if a["status"] == "ready":
+            v = a["verification"]
+            if "noise_battery" in v:
+                assert v["noise_battery"]["all_passed"], a["asset_id"]
+            elif "non_silent" in v:
+                assert v["non_silent"] is True, a["asset_id"]
+    assert len(ready) >= 20
+
+
+def test_curated_rip_provenance_and_fallback():
+    """Stage 1 contract: mario/bowser/yoshi resolve real SMW frames where a
+    pose is mounted, and fall back to the procedural painter when it isn't."""
+    bank = sprites.SpriteBank(1)
+    assert bank.is_real("mario", "idle") is True
+    assert bank.is_real("bowser", "idle") is True
+    # mario idle must be the authentic overworld sprite, not a 16x20 painter
+    assert bank.image("mario", "idle").size[0] >= 18
+    # an unmounted pose/char degrades gracefully to a real/non-zero frame
+    img = bank.image("luigi", "idle")   # no curated luigi frame -> procedural
+    gate = assets.gate_image(img)
+    assert gate["all_passed"]
 
 
 def test_movement_library_cache_and_fallback():

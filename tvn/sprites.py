@@ -249,11 +249,43 @@ POSE_KEYS = ("idle", "talk_a", "talk_b", "walk_a", "walk_b", "happy", "jump", "a
 
 
 class SpriteBank:
-    """Builds & caches per-character pose frames. Movement library drives it."""
+    """Builds & caches per-character pose frames. Movement library drives it.
+
+    Resolution (Stage 1): a curated real SMW frame at
+    `assets/movements/<kind>/<pose>.png` is used when present (method:
+    "curated_rip"). Otherwise it gracefully falls back to the procedural
+    painter -- a missing real frame must never kill the feed. Both are cached.
+    """
 
     def __init__(self, scale: int = 4):
         self.scale = scale
         self._cache: dict[tuple[str, str], "Canvas"] = {}
+        self._real_cache: dict[tuple[str, str], "Image.Image"] = {}
+
+    # -- real curated frame resolution -------------------------------------
+    def _movements_dir(self) -> "Path":
+        from .config import SETTINGS
+        return SETTINGS.root / "assets" / "movements"
+
+    def real_frame(self, kind: str, pose: str) -> "Image.Image":
+        """Return a mounted real SMW frame as an RGBA Image, or None."""
+        key = (kind, pose)
+        if key in self._real_cache:
+            return self._real_cache[key]
+        img = None
+        p = self._movements_dir() / kind / f"{kind}_{pose}.png"
+        if p.exists():
+            from PIL import Image
+            im = Image.open(str(p)).convert("RGBA")
+            if self.scale != 1:
+                im = im.resize((im.width * self.scale, im.height * self.scale),
+                               Image.NEAREST)
+            img = im
+        self._real_cache[key] = img
+        return img
+
+    def is_real(self, kind: str, pose: str) -> bool:
+        return self.real_frame(kind, pose) is not None
 
     def frame(self, kind: str, pose: str) -> "Canvas":
         key = (kind, pose)
@@ -263,6 +295,21 @@ class SpriteBank:
         return self._cache[key]
 
     def image(self, kind: str, pose: str = "idle"):
+        """Return an RGBA Image for a cast member pose.
+
+        Real curated frame wins when available; procedural painter otherwise.
+        Poses without a real mount (e.g. talk pose of a char we only mounted
+        idle for) fall back to the painter so the MovementLibrary stays live.
+        """
+        if pose not in POSE_KEYS:
+            pose = "idle"
+        real = self.real_frame(kind, pose)
+        if real is not None:
+            return real
+        if pose != "idle":
+            real = self.real_frame(kind, "idle")   # idle is the safe fallback
+            if real is not None:
+                return real
         c = self.frame(kind, pose)
         img = c.image()
         if self.scale != 1:

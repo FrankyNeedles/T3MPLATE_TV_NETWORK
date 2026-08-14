@@ -1,0 +1,92 @@
+[
+  {
+    "pose": "idle",
+    "file": "mario_idle.png",
+    "source": "mario_f00.png",
+    "dims": [
+      20,
+      20
+    ],
+    "sha256": "4c8b9dac788b9da3",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.65,
+      "colors": 11
+    }
+  },
+  {
+    "pose": "talk_a",
+    "file": "mario_talk_a.png",
+    "source": "mario_f00.png",
+    "dims": [
+      20,
+      20
+    ],
+    "sha256": "4c8b9dac788b9da3",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.65,
+      "colors": 11
+    }
+  },
+  {
+    "pose": "talk_b",
+    "file": "mario_talk_b.png",
+    "source": "mario_f02.png",
+    "dims": [
+      20,
+      20
+    ],
+    "sha256": "e7d2178be05fb4cf",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.65,
+      "colors": 7
+    }
+  },
+  {
+    "pose": "walk_a",
+    "file": "mario_walk_a.png",
+    "source": "mario_f04.png",
+    "dims": [
+      20,
+      20
+    ],
+    "sha256": "2814f17b81de9560",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.65,
+      "colors": 10
+    }
+  },
+  {
+    "pose": "walk_b",
+    "file": "mario_walk_b.png",
+    "source": "mario_f06.png",
+    "dims": [
+      20,
+      20
+    ],
+    "sha256": "a6860a09377bdaee",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.65,
+      "colors": 11
+    }
+  },
+  {
+    "pose": "happy",
+    "file": "mario_happy.png",
+    "source": "mario_f08.png",
+    "dims": [
+      20,
+      21
+    ],
+    "sha256": "77223eebd427e3a3",
+    "gate": {
+      "all_passed": true,
+      "cov": 0.617,
+      "colors": 11
+    }
+  }
+]

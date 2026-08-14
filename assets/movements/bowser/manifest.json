@@ -1,0 +1,16 @@
+{
+  "character": "bowser",
+  "game": "Super Mario World (USA) [SNES]",
+  "rom_sha256": "0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b",
+  "method": "curated_rip",
+  "source_url": "https://www.spriters-resource.com/snes/smarioworld/asset/52778/",
+  "sheet": "Super Mario World (USA) Bowser sprite sheet (Spriters Resource #52778)",
+  "palette_source": "Spriters Resource sheet (native SMW CGRAM palette)",
+  "n_frames": 3,
+  "poses": [
+    "idle",
+    "walk_a",
+    "walk_b"
+  ],
+  "note": "Pose->frame mapping best-effort from SMW sprites; unmapped poses fall back to procedural painter in SpriteBank (honest fallback)."
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "pose": "idle",
+    "file": "yoshi_idle.png",
+    "source": "yoshi_f00.png",
+    "dims": [
+      40,
+      34
+    ],
+    "sha256": "0394c803eff812e8",
+    "gate": {
+      "all_passed": false,
+      "cov": 0.982,
+      "colors": 24
+    }
+  }
+]

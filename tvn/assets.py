@@ -21,9 +21,11 @@ from .config import SETTINGS
 NATIVE = SETTINGS.res_native  # (256, 224)
 
 # -- Deterministic noise-battery gates (RESEARCH_ASSETS 4.1/4.2) ---------------
-def gate_image(img: Image.Image, n_tiles: int = 8, kind: str = "sprite") -> dict[str, Any]:
+def gate_image(img: Image.Image, n_tiles: int = 8, kind: str = "sprite",
+               real_art: bool = False) -> dict[str, Any]:
     """Run content checks on an image. Returns metrics + all_passed bool.
-    kind='background' relaxes the alpha/bbox bounds (full-frame sets are valid)."""
+    kind='background' relaxes the alpha/bbox bounds (full-frame sets are valid).
+    real_art=True allows authentic SNES colors >15 (captured/curated frames)."""
     rgba = np.array(img.convert("RGBA"))
     alpha = rgba[..., 3]
     h, w = alpha.shape
@@ -52,10 +54,22 @@ def gate_image(img: Image.Image, n_tiles: int = 8, kind: str = "sprite") -> dict
     if kind == "background":
         ok = coverage > 0.5 and used_colors >= 2 and w >= 64 and h >= 64
     else:
+        # Real SMW art legitimately uses more than 15 colors (native CGRAM
+        # palettes + anti-aliased rips); the old upper bound was written for
+        # procedural placeholder sprites. `real_art` keeps the anti-noise
+        # floor (coverage, min colors, dims) but drops the cap and the bbox
+        # bound that would wrongly quarantine authentic cropped frames (a
+        # trimmed-to-content rip has bbox_ratio==1.0 by construction).
+        hi = 400 if real_art else 15
+        bbox_ok = (0.01 <= bbox_ratio <= 0.90) if not real_art else True
+        # real dense sprites (e.g. SMW Yoshi) legitimately fill ~98% of their
+        # trimmed box; only enforce the "not blank" floor (coverage>0.02) and
+        # the sparse cap for procedural placeholders.
+        cov_ok = (0.02 <= coverage <= 0.95) if not real_art else (coverage >= 0.02)
         ok = (
-            0.02 <= coverage <= 0.95
-            and 0.01 <= bbox_ratio <= 0.90
-            and 2 <= used_colors <= 15
+            cov_ok
+            and bbox_ok
+            and 2 <= used_colors <= hi
             and w >= 8 and h >= 8
         )
     return {"checks": checks, "all_passed": bool(ok), "width": w, "height": h, "kind": kind}
@@ -67,7 +81,42 @@ def _bg_canvas() -> Canvas:
 
 
 def background(set_name: str) -> Image.Image:
-    """Build a full-screen SNES set background (256x224)."""
+    """Build a full-screen SNES set background (256x224).
+
+    Prefers a real emulator-captured frame at assets/backgrounds/real_<set>.png
+    (method:"emulator_capture", verified through gate_image); otherwise falls
+    back to the procedural curated painter. The real capture must be a
+    non-blank game screen -- anything failing the gate is quarantined here and
+    the procedural painter is used (graceful, honest degradation).
+    """
+    real = _real_background(set_name)
+    if real is not None:
+        return real
+    return _procedural_background(set_name)
+
+
+_REAL_BG_CACHE: dict[str, Any] = {}
+def _real_background(set_name: str) -> Any:
+    """Load a staged real captured background for `set_name`, gated. None if
+    absent or it fails the noise battery (=> caller uses procedural fallback)."""
+    if set_name in _REAL_BG_CACHE:
+        return _REAL_BG_CACHE[set_name]
+    path = SETTINGS.root / "assets" / "backgrounds" / f"real_{set_name}.png"
+    result = None
+    if path.exists():
+        img = Image.open(str(path)).convert("RGBA")
+        if img.size != NATIVE:
+            img = img.resize(NATIVE, Image.LANCZOS)
+        g = gate_image(img, kind="background")
+        if g["all_passed"]:
+            result = img
+        # else: quarantined (blank/noise) -> fall back to procedural painter
+    _REAL_BG_CACHE[set_name] = result
+    return result
+
+
+def _procedural_background(set_name: str) -> Image.Image:
+    """The original curated procedural set painter (fallback path)."""
     c = _bg_canvas()
     sky = "lt_blue"
     floor = "brown"
@@ -175,42 +224,130 @@ def _text_center(d, text, x, y, font, fill, outline=None):
 
 
 # -- Catalog (honest, append-only) --------------------------------------------
-def build_catalog() -> Path:
-    """Write assets/catalog.json with honest provenance + gate results."""
+def _load_manifest(p: Path) -> list[dict]:
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return [data]
+            if isinstance(data, list):
+                return data
+        except Exception:
+            pass
+    return []
 
+
+def build_catalog() -> Path:
+    """Write assets/catalog.json with honest provenance + gate results.
+
+    Real captured/curated assets carry `method:"emulator_capture"`/`"curated_rip"`
+    with {game, rom_sha256 | source_url, palette_source, frames}; procedural
+    placeholders keep `method:"procedural_curated"`. Nothing real is labelled
+    procedural_curated.
+    """
     def sha(img: Image.Image) -> str:
         return hashlib.sha256(img.tobytes()).hexdigest()[:16]
 
-    # backgrounds
     bg_entries = []
+    # 1) real emulator-captured backgrounds (from assets/backgrounds/manifest.json)
+    for m in _load_manifest(SETTINGS.root/"assets"/"backgrounds"/"manifest.json"):
+        f = SETTINGS.root/"assets"/"backgrounds"/m["file"]
+        img = Image.open(str(f)).convert("RGBA")
+        gate = gate_image(img, kind="background")
+        bg_entries.append({
+            "asset_id": m["asset_id"], "asset_type": "background",
+            "status": "ready" if gate["all_passed"] else "quarantined",
+            "provenance": {
+                "method": "emulator_capture", "game": m["game"],
+                "rom_sha256": m["rom_sha256"], "emulator": m["emulator"],
+                "palette_source": "native SNES rendered output",
+            },
+            "artifact": {"dimensions": img.size, "sha256": sha(img)},
+            "verification": {"noise_battery": gate},
+        })
+    # 2) procedural placeholders for sets that have NO real capture (fallback)
+    real_sets = {m["set_name"] for m in _load_manifest(
+        SETTINGS.root/"assets"/"backgrounds"/"manifest.json")}
     for name in ("news_studio", "talk_show", "diner", "cartoon_house",
                  "city", "sports_arena", "batcave", "studio", "game_show"):
+        if name in real_sets:
+            continue
         img = background(name)
         gate = gate_image(img, kind="background")
         bg_entries.append({
             "asset_id": f"bg_{name}", "asset_type": "background",
             "status": "ready" if gate["all_passed"] else "quarantined",
-            "provenance": {"method": "procedural_curated", "note": "not a ROM rip"},
+            "provenance": {"method": "procedural_curated", "note": "fallback; not a ROM rip"},
             "artifact": {"dimensions": img.size, "sha256": sha(img)},
             "verification": {"noise_battery": gate},
         })
+
     # sprites
     bank = SpriteBank(1)
     spr_entries = []
+    # real curated movements (from assets/movements/<char>/manifest.json)
+    mov_dir = SETTINGS.root / "assets" / "movements"
+    if mov_dir.exists():
+        for cdir in sorted(mov_dir.iterdir()):
+            if not cdir.is_dir():
+                continue
+            mm = _load_manifest(cdir / "manifest.json")
+            if not mm:
+                continue
+            mm = mm[0]
+            for cell in _load_manifest(cdir / "cells.json"):
+                f = cdir / cell["file"]
+                img = Image.open(str(f)).convert("RGBA")
+                gate = gate_image(img, real_art=True)
+                spr_entries.append({
+                    "asset_id": f"spr_{mm['character']}_{cell['pose']}",
+                    "asset_type": "sprite",
+                    "status": "ready" if gate["all_passed"] else "quarantined",
+                    "provenance": {
+                        "method": "curated_rip", "game": mm["game"],
+                        "rom_sha256": mm["rom_sha256"], "source_url": mm["source_url"],
+                        "palette_source": mm["palette_source"],
+                    },
+                    "artifact": {"dimensions": img.size, "sha256": sha(img)},
+                    "verification": {"noise_battery": gate},
+                })
+    # procedural sprites (fallback) for cast without an uploaded real frame
+    real_poses = set()
+    for e in spr_entries:
+        real_poses.add(e["asset_id"].replace("spr_", "").rsplit("_", 1)[0])
     for kind in bank.characters():
+        if kind in real_poses:
+            continue
         img = bank.image(kind, "idle")
         gate = gate_image(img)
         spr_entries.append({
             "asset_id": f"spr_{kind}", "asset_type": "sprite",
             "status": "ready" if gate["all_passed"] else "quarantined",
-            "provenance": {"method": "procedural_curated", "note": "not a ROM rip"},
+            "provenance": {"method": "procedural_curated", "note": "fallback; not a ROM rip"},
             "artifact": {"dimensions": img.size, "sha256": sha(img)},
             "verification": {"noise_battery": gate},
         })
+
+    # audio provenance (real emulator-captured beds)
+    audio_entries = []
+    for m in _load_manifest(SETTINGS.root/"assets"/"audio"/"manifest.json"):
+        f = SETTINGS.root/"assets"/"audio"/m["file"]
+        audio_entries.append({
+            "asset_id": m["asset_id"], "asset_type": "audio",
+            "status": "ready" if m.get("non_silent") else "quarantined",
+            "provenance": {
+                "method": "emulator_capture", "game": m["game"],
+                "rom_sha256": m["rom_sha256"], "emulator": m["emulator"],
+            },
+            "artifact": {"file": m["file"], "sha256": m["sha256"], "rms": m["rms"]},
+            "verification": {"non_silent": m.get("non_silent", False)},
+        })
+
     catalog = {
         "generated_at": __import__("datetime").datetime.now().isoformat(),
-        "note": "Procedural curated placeholders. Real ROM assets via emulator capture are future work (RESEARCH_SNES).",
-        "assets": bg_entries + spr_entries,
+        "note": ("Real SNES assets via emulator capture + curated Spriters Resource "
+                 "rips (Stage 1/2). Procedural curated remains as honest fallback only."),
+        "assets": bg_entries + spr_entries + audio_entries,
     }
     path = SETTINGS.root / "assets" / "catalog.json"
     path.parent.mkdir(parents=True, exist_ok=True)

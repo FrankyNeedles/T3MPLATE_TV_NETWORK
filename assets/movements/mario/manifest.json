@@ -1,0 +1,19 @@
+{
+  "character": "mario",
+  "game": "Super Mario World (USA) [SNES]",
+  "rom_sha256": "0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b",
+  "method": "curated_rip",
+  "source_url": "https://www.spriters-resource.com/snes/smarioworld/asset/173882/",
+  "sheet": "Super Mario World (USA) overworld sprite sheet (Spriters Resource #173882)",
+  "palette_source": "Spriters Resource sheet (native SMW CGRAM palette)",
+  "n_frames": 6,
+  "poses": [
+    "idle",
+    "talk_a",
+    "talk_b",
+    "walk_a",
+    "walk_b",
+    "happy"
+  ],
+  "note": "Pose->frame mapping best-effort from SMW sprites; unmapped poses fall back to procedural painter in SpriteBank (honest fallback)."
+}

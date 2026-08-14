@@ -45,6 +45,7 @@ assets/large/
 # Logs and temp
 *.log
 tmp/
+.build_work/
 .DS_Store
 # T3MPLATE TV runtime build artifacts
 .venv-mvp/
