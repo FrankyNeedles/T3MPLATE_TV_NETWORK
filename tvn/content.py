@@ -184,15 +184,19 @@ FALLBACK_BEATS = {
             [("{a}", "The best part of this job is sharing the desk with {b}."),
              ("{b}", "Aw {a}, you'll make me blush. To the viewers -- look at us!")],
             [("{a}", "Folks ask how we stay so close through all this. {b}, you first."),
-             ("{b}", "Toadstools don't lie, {a}. That's the whole secret.")],
-        ],
+                         ("{b}", "Toadstools don't lie, {a}. That's the whole secret.")],
+                        [("{a}", "One for the record books -- {b} and I, partners again."),
+                         ("{b}", "And the best team on T3TV says hi, {a}.")],
+                    ],
         "formats": {
             "morning": [
                 [("{a}", "A perfect morning to have {b} dropping by the studio!"),
                  ("{b}", "Your coffee's already here, {a}. I never miss it.")],
                 [("{a}", "{b}, you bring such sunshine to our early set."),
-                 ("{b}", "Only because you make the welcome, {a}.")],
-            ],
+                                 ("{b}", "Only because you make the welcome, {a}.")],
+                                [("{a}", "Morning viewers -- {b}'s here, so today is already off to a win."),
+                                 ("{b}", "Save a seat for me, {a}. I'm not leaving.")],
+                            ],
             "talk": [
                 [("{a}", "We've got {b} on the couch -- and you know that's family."),
                  ("{b}", "When {a} calls, I come running. Warts and all.")],
@@ -268,8 +272,10 @@ FALLBACK_BEATS = {
             [("{c1}", "Coming up next, {show} -- you will not want to miss this."),
              ("{c2}", "Stay right there, viewers.")],
             [("{c1}", "Clear your schedule -- {show} is next and it's huge."),
-             ("{c2}", "You heard it first on T3TV.")],
-        ],
+                         ("{c2}", "You heard it first on T3TV.")],
+                        [("{c1}", "You won't want to touch that dial -- {show} is coming up."),
+                         ("{c2}", "Right here on T3TV, right after this break.")],
+                    ],
         "formats": {
             "infomercial": [
                 [("{c1}", "But wait, there's more -- right after this, {show} on T3TV."),

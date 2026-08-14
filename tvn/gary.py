@@ -82,22 +82,22 @@ class GaryPD:
         return fills
 
     def _on_set_relation(self, digest: dict, rel_kind: str, on_set: set[str],
-                         allow_guest: bool) -> Optional[dict]:
-        """Find a real relationship at least one of whose members is ON SET.
+                         allow_guest: bool) -> list[dict]:
+        """Return ALL real relationships at least one of whose members is ON SET.
 
-        Returns the relationship dict (with a/b = the pair) or None. A feud or
-        friendship beat may ONLY air when the actual participants carry it in the
-        world (WEAK-1b): at least one member under the mic, and the other either
-        already over it or able to join as a guest.
+        A feud or friendship beat may ONLY air when the actual participants carry
+        it in the world (WEAK-1b): at least one member under the mic, and the
+        other either already over it or able to join as a guest. Returning the
+        full candidate list (instead of the first) lets the per-airing RNG rotate
+        WHICH pair airs (GAP-3) instead of always broadcasting the top bond.
         """
         rows = digest["feuds"] if rel_kind == "feud" else digest["friendships"]
+        out = []
         for r in rows:
             a, b = r["a"], r["b"]
-            if a in on_set or b in on_set:
-                # both parties must be drawable speakers (re-keyed to real actors)
-                if a in content.CAST and b in content.CAST:
-                    return r
-        return None
+            if (a in on_set or b in on_set) and a in content.CAST and b in content.CAST:
+                out.append(r)
+        return out
 
     def _choose_beat(self, fmt: str, digest: dict, rng, hosts: list[str]) -> tuple[str, dict]:
         """Pick a story beat from REAL world state, respecting the format's
@@ -108,12 +108,14 @@ class GaryPD:
         on_set = set(hosts)
 
         # relational beats first -- but only if the format permits them AND the
-        # cast actually carries the relationship (re-key guest for the partner)
+        # cast actually carries the relationship (re-key guest for the partner).
+        # Among ALL candidate bonds, the seed rotates which pair airs (GAP-3).
         for rel_kind, beat_name in (("feud", "feud"), ("friendship", "friendship")):
             if beat_name not in allowed:
                 continue
-            rel = self._on_set_relation(digest, rel_kind, on_set, allow_guest=True)
-            if rel is not None:
+            rels = self._on_set_relation(digest, rel_kind, on_set, allow_guest=True)
+            if rels:
+                rel = rng.choice(rels)
                 fills["a"], fills["b"] = rel["a"], rel["b"]
                 fills["score"] = abs(rel["score"])
                 fills["_rel_kind"] = rel_kind
