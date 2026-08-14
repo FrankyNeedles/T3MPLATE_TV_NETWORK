@@ -251,20 +251,23 @@ FALLBACK_BEATS = {
         "motion": "happy",
     },
     "seeking_work": {
-        "story": "{guest} is looking for work after their last show wrapped. Welcome as today's guest!",
-        "variants": [
-            [("{host}", "Everyone, welcome {guest} to the show!"),
-             ("{guest}", "Thanks, {host}. I'm really looking for the next big thing.")],
-            [("{host}", "The very talented {guest} joins us. They're between shows, folks."),
-             ("{guest}", "And I'm ready for my close-up, {host}. Here's hoping.")],
-        ],
-        "formats": {
-            "talk": [
-                [("{host}", "We've got {guest} hot off a wrap -- let's put them to work!"),
-                 ("{guest}", "Point me at the mic, {host}. I'm all yours.")],
+    "story": "{guest} is looking for work after their last show wrapped. Welcome as today's guest!",
+            "variants": [
+                [("{host}", "Everyone, welcome {guest} to the show!"),
+                 ("{guest}", "Thanks, {host}. I'm really looking for the next big thing.")],
+                [("{host}", "The very talented {guest} joins us. They're between shows, folks."),
+                 ("{guest}", "And I'm ready for my close-up, {host}. Here's hoping.")],
             ],
-        },
-        "motion": "wave",
+            "formats": {
+                "talk": [
+                    [("{host}", "We've got {guest} hot off a wrap -- let's put them to work!"),
+                     ("{guest}", "Point me at the mic, {host}. I'm all yours.")],
+                ],
+            },
+            # Stage 5 (F-1.1): a seeking-work guest LITERALLY crosses the stage to the
+            # mic -- a real walk motion (the renderer slides them across the slot),
+            # not a frozen idle. Makes the guest's entrance read as live TV.
+            "motion": "walk",
     },
     "show_promo": {
         "story": "Tonight on {show}: a must-see episode. Don't touch that dial!",

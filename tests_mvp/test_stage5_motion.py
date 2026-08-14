@@ -89,6 +89,13 @@ def test_render_segment_has_motion_between_show_frames():
     assert not np.array_equal(a, b), "show frames are byte-identical (no animation)"
 
 
+def test_seeking_work_beat_uses_walk_motion():
+    """F-1.1 -- the seeking-work beat (a guest crossing the stage) carries the
+    `walk` motion so the renderer produces a real cross-slot slide, not idle."""
+    from tvn import content
+    assert content.FALLBACK_BEATS["seeking_work"]["motion"] == "walk"
+
+
 def test_six_painter_chars_animate_when_motion_fed():
     """F-1.1 / F-1.6 -- the painter-only cast (luigi/peach/toad/wario/link/zelda)
     resolve a NON-idle pose for talk/happy/walk via the SpriteBank."""
