@@ -62,70 +62,129 @@ class GaryPD:
         self.mood = "cheerful"
 
     # -- world-aware beat selection ------------------------------------------
-    def _choose_beat(self, fmt: str, digest: dict) -> tuple[str, dict]:
-        """Pick a story beat from REAL world state (not random.choice)."""
-        priority: list[str] = []
+    def _enrich_fills(self, digest: dict, rng) -> dict:
+        """Gather candidate fills and ROTATE which world item wins (GAP-3)."""
         fills: dict[str, Any] = {}
-
-        # enriched fills gathered regardless of which beat wins
         if digest["friendships"]:
-            f = digest["friendships"][0]
-            fills["c1"], fills["c2"], fills["score"] = f["a"], f["b"], abs(f["score"])
+            f = rng.choice(digest["friendships"])
+            fills["friendships"] = digest["friendships"]
+            fills["_top_friendship"] = f
         if digest["feuds"]:
-            fe = digest["feuds"][0]
-            fills["feud_c1"], fills["feud_c2"], fills["feud_score"] = fe["a"], fe["b"], abs(fe["score"])
+            fills["feuds"] = digest["feuds"]
+            fills["_top_feud"] = rng.choice(digest["feuds"])
         if digest["gags"]:
-            fills["gag"] = digest["gags"][0]["gag"].lower()
-            fills["count"] = digest["gags"][0]["count"]
+            g = rng.choice(digest["gags"])
+            fills["gag"] = g["gag"].lower()
+            fills["count"] = g["count"]
         if digest["shows"]:
-            fills["show"] = digest["shows"][0]["name"]
+            fills["shows"] = digest["shows"]
+            fills["_top_show"] = rng.choice(digest["shows"])
+        return fills
 
-        # decide candidate beats by format
-        if digest["seeking_work"] and fmt in _GUEST_FORMATS:
-            priority.append("seeking_work")
-            fills["guest"] = digest["seeking_work"][0]
-        if digest["feuds"] and fmt not in ("soap", "cartoon", "late_night"):
-            priority.append("feud")
-        if digest["friendships"]:
-            priority.append("friendship")
-        if digest["gags"]:
-            priority.append("gag")
+    def _on_set_relation(self, digest: dict, rel_kind: str, on_set: set[str],
+                         allow_guest: bool) -> Optional[dict]:
+        """Find a real relationship at least one of whose members is ON SET.
+
+        Returns the relationship dict (with a/b = the pair) or None. A feud or
+        friendship beat may ONLY air when the actual participants carry it in the
+        world (WEAK-1b): at least one member under the mic, and the other either
+        already over it or able to join as a guest.
+        """
+        rows = digest["feuds"] if rel_kind == "feud" else digest["friendships"]
+        for r in rows:
+            a, b = r["a"], r["b"]
+            if a in on_set or b in on_set:
+                # both parties must be drawable speakers (re-keyed to real actors)
+                if a in content.CAST and b in content.CAST:
+                    return r
+        return None
+
+    def _choose_beat(self, fmt: str, digest: dict, rng, hosts: list[str]) -> tuple[str, dict]:
+        """Pick a story beat from REAL world state, respecting the format's
+        allowed beats (WEAK-1a) and verifying any relational beat against the
+        actual on-set cast (WEAK-1b). Not random.choice."""
+        allowed = set(content.FORMAT_ALLOWED_BEATS.get(fmt, content.FORMAT_ALLOWED_BEATS["news"]))
+        fills = self._enrich_fills(digest, rng)
+        on_set = set(hosts)
+
+        # relational beats first -- but only if the format permits them AND the
+        # cast actually carries the relationship (re-key guest for the partner)
+        for rel_kind, beat_name in (("feud", "feud"), ("friendship", "friendship")):
+            if beat_name not in allowed:
+                continue
+            rel = self._on_set_relation(digest, rel_kind, on_set, allow_guest=True)
+            if rel is not None:
+                fills["a"], fills["b"] = rel["a"], rel["b"]
+                fills["score"] = abs(rel["score"])
+                fills["_rel_kind"] = rel_kind
+                fills["_rel_missing_guest"] = self._missing_member(rel, on_set)
+                return beat_name, fills
+
+        # seeking-work guest (only on formats that welcome a guest)
+        if digest["seeking_work"] and fmt in _GUEST_FORMATS and "seeking_work" in allowed:
+            guest = rng.choice(digest["seeking_work"])
+            fills["guest"] = guest
+            return "seeking_work", fills
+
+        # gag is narration, fine on most family/scripted formats
+        if "gag" in allowed and digest["gags"]:
+            return "gag", fills
+
+        # ratings wins when a strong show exists
+        if "ratings" in allowed and digest["shows"]:
+            fills["show"] = fills["_top_show"]["name"]
+            fills["rating"] = fills["_top_show"]["rating"]
+            return "ratings", fills
+
+        # show promo is always a safe, format-neutral close
         if digest["shows"]:
-            priority.append("ratings")
-        priority.append("show_promo")
-
-        # lowest index wins == strongest signal
-        for beat in _BEAT_PRIORITY:
-            if beat in priority:
-                return beat, fills
+            fills["show"] = fills["_top_show"]["name"]
         return "show_promo", fills
+
+    def _missing_member(self, rel: dict, on_set: set[str]) -> Optional[str]:
+        """The participant not currently over the mic (becomes the guest)."""
+        a, b = rel["a"], rel["b"]
+        if a not in on_set:
+            return a
+        if b not in on_set:
+            return b
+        return None
 
     def _mood_for(self, beat: str) -> str:
         return {"feud": "dramatic", "gag": "happy", "friendship": "cheerful",
                 "seeking_work": "warm", "ratings": "celebratory"}.get(beat, "neutral")
 
     # -- segment production ---------------------------------------------------
-    def decide(self, slot) -> broadcast.BroadcastSegment:
+    def decide(self, slot, seed: Optional[int] = None) -> broadcast.BroadcastSegment:
         """Produce a renderable BroadcastSegment for the active grid slot,
-        caused by the world digest."""
+        caused by the world digest. `seed` seeds per-airing novelty (GAP-3): a
+        different seed per pass -> different world pair / dialogue variant, so
+        consecutive airings of a slot DIFFER instead of looping byte-identical.
+        """
         digest = self.world.world_digest()
         fmt = slot.fmt
         preset = content.SHOW_PRESETS.get(fmt, content.SHOW_PRESETS["news"])
-        beat, fills = self._choose_beat(fmt, digest)
+        rng = random.Random(seed)
+
+        beat, fills = self._choose_beat(fmt, digest, rng,
+                                        [n for n in preset["hosts"] if n in content.CAST])
         self.mood = self._mood_for(beat)
 
-        # cast (honor preset hosts; append feud/guest when present)
+        # cast (honor preset hosts; append the re-keyed relational guest / work guest)
         casts = []
         for name in preset["hosts"]:
             meta = content.CAST.get(name)
             if meta:
                 casts.append(broadcast.Cast(name=name, kind=meta["kind"],
                                             title=meta["role"], motion="idle"))
-        if beat == "feud" and "guest" in fills:
-            guest = fills["guest"]
-            g = content.CAST.get(guest)
-            if g and all(c.name != guest for c in casts):
-                casts.append(broadcast.Cast(name=guest, kind=g["kind"],
+
+        # WEAK-1b: if the relational partner isn't a host, re-key cast to bring
+        # the REAL feud/friendship actor over the mic (not a random host).
+        missing = fills.get("_rel_missing_guest")
+        if missing and missing in content.CAST:
+            m = content.CAST[missing]
+            if all(c.name != missing for c in casts):
+                casts.append(broadcast.Cast(name=missing, kind=m["kind"],
                                             title="Guest", motion="idle"))
         elif beat == "seeking_work" and "guest" in fills:
             g = content.CAST.get(fills["guest"])
@@ -139,34 +198,35 @@ class GaryPD:
             casts = [broadcast.Cast(name="toad", kind="toad", title="Host",
                                     motion="idle")]
 
-        # Keep the SHOW'S OWN presenters as the dialogue speakers. We do NOT
-        # re-pin c1/c2 onto the top friendship/feud actors -- that override used
-        # to bump the real co-host off-mic (m2). The feud / seeking-work
-        # participant is added as a guest speaker instead of replacing a host.
+        # Keep the SHOW'S OWN presenters as the dialogue speakers; the relational
+        # pair {a}/{b} is filled with the REAL feud/friendship actors regardless.
         if len(casts) >= 2:
             fills["c1"], fills["c2"] = casts[0].name, casts[1].name
         else:
             fills["c1"] = casts[0].name
-            fills["c2"] = fills.get("c2", "the viewers")
-        if beat in ("friendship", "gag", "ratings", "show_promo") and \
-                digest["friendships"] and len(casts) >= 2:
-            # keep a live score for the (host,host) pairing when a relationship
-            # exists between these two presenters, else inherit the enrich score
-            f = digest["friendships"][0]
-            fills["score"] = fills.get("score", abs(f["score"]))
-        if beat == "feud" and "feud_c2" in fills:
-            fills["guest"] = fills.get("feud_c2")   # feud partner joins as guest
-        elif beat == "seeking_work":
-            fills["host"] = casts[0].name
-            fills["guest"] = fills.get("guest", "toad")
+            fills["c2"] = casts[1].name if len(casts) > 1 else "the viewers"
+        fills["host"] = casts[0].name
+        fills.setdefault("a", fills.get("c1"))
+        fills.setdefault("b", fills.get("c2"))
+        fills.setdefault("show", fills.get("_top_show", {}).get("name", "T3TV Tonight"))
 
-        # dialogue beats from the template, filled with live world data
+        # dialogue beats from the beat template, FORMAT-voiced and variant-rotated
         tpl = content.FALLBACK_BEATS[beat]
+        variants = []
+        if fmt in tpl.get("formats", {}):
+            variants = tpl["formats"][fmt]
+        else:
+            variants = tpl["variants"]
+        # rotation per airing (GAP-3): a fresh seed -> a fresh dialogue variant
+        chosen = rng.choice(variants)
+
         dialog = []
-        for (speaker, line) in tpl["dialogue"]:
+        for (speaker, line) in chosen:
             text = line
             spk = speaker
             for k, v in fills.items():
+                if k.startswith("_"):
+                    continue
                 if text:
                     text = text.replace("{" + k + "}", str(v))
                 spk = spk.replace("{" + k + "}", str(v))
@@ -191,13 +251,15 @@ class GaryPD:
         # background (preset + world mood)
         bg = preset["sets"][0]
 
-        # ticker derived from world (not static)
+        # ticker derived from world (not static); only formats that allow the
+        # topic get the corresponding ticker line (format coherence, WEAK-1a).
         ticker = []
+        allowed = set(content.FORMAT_ALLOWED_BEATS.get(fmt, content.FORMAT_ALLOWED_BEATS["news"]))
         if preset.get("ticker"):
-            if digest["feuds"]:
+            if digest["feuds"] and "feud" in allowed:
                 fe = digest["feuds"][0]
                 ticker.append(f"FEUD WATCH: {fe['a']} vs {fe['b']} -- drama at 11")
-            if digest["friendships"]:
+            if digest["friendships"] and "friendship" in allowed:
                 f = digest["friendships"][0]
                 ticker.append(f"GOOD NEWS: {f['a']} & {f['b']} reunite on-air today")
             if digest["shows"]:
@@ -206,7 +268,7 @@ class GaryPD:
 
         show_title = slot.title
         return broadcast.BroadcastSegment(
-            seg_id=f"{show_title.lower().replace(' ', '_')}_{datetime.now().strftime('%H%M')}",
+            seg_id=f"{show_title.lower().replace(' ', '_')}_{datetime.now().strftime('%H%M%S')}",
             title=show_title, fmt=fmt, daypart=slot.daypart,
             background=bg, cast=casts, beats=dialog,
             ticker=ticker, rating="TV-PG",
