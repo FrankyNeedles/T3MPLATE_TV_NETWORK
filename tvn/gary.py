@@ -339,10 +339,18 @@ class GaryPD:
 
     # -- movement library access (Frank: movement as a first-class library) --
     def choreograph(self, segment: broadcast.BroadcastSegment) -> dict[str, str]:
-        """Return per-cast movement assignments for this segment's beats."""
+        """Return per-cast movement assignments for this segment's beats.
+
+        Only assigns motion to speakers who are actual cast members. A beat's
+        speaker may be a non-cast placeholder (e.g. 'the viewers' from a 1-host
+        slot's {c2} fill) -- such speakers get no movement (no animation key for
+        a non-existent sprite frame).
+        """
         out: dict[str, str] = {}
         for c in segment.cast:
             out[c.name] = "idle"
+        cast_names = {c.name for c in segment.cast}
         for b in segment.beats:
-            out[b.speaker] = b.motion
+            if b.speaker in cast_names:
+                out[b.speaker] = b.motion
         return out
