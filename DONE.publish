@@ -1,0 +1,6 @@
+DONE.publish
+T3MPLATE TV Network MVP v0.9-stage7 — published & verified reproducible.
+Tag: v0.9-stage7 @ 09765f4
+Push URL: https://github.com/FrankyNeedles/T3MPLATE_TV_NETWORK
+Green gates: pytest 113 passed; ffprobe h264 512x448 + aac 22050Hz, A/V sync 0.041s
+Reproducibility: fresh clone → venv → pip install -r requirements.txt → 113 passed → run.py --seconds 10 → 150353-byte non-blank MP4
