@@ -79,7 +79,8 @@ def _pad_audio_to_frames(audio: Optional[bytes], n_frames: int, fps: int,
 
 def write_video(frames: Iterator[np.ndarray], out_path: Path,
                 fps: int = None, audio: Optional[bytes] = None,
-                rate: int = None, silent: bool = True) -> Path:
+                rate: int = None, silent: bool = True,
+                snes_palette: bool = False) -> Path:
     """Pipe frames (+ mono PCM16 audio) to ffmpeg -> MP4 with A/V sync bound.
 
     Writes to a temp file then atomically renames into place so an interrupt or
@@ -88,6 +89,13 @@ def write_video(frames: Iterator[np.ndarray], out_path: Path,
     (silent mode still surfaces failures -- a broken broadcast must not look OK).
     Audio is padded/trimmed to the exact video frame count and muxed with
     ``-shortest``, guaranteeing abs(audio_dur - video_dur) < ~0.2 s (F-2.5).
+
+    Improvement 3: when ``snes_palette=True``, encode with ``libx264rgb`` +
+    ``-pix_fmt rgb24`` + ``-crf 1`` (near-lossless RGB) instead of the default
+    yuv420p path. The default ``-c:v libx264 -pix_fmt yuv420p`` converts RGB->YUV
+    which chroma-subsamples and reintroduces interpolated channel values that
+    destroy the SNES 15-bit palette snap. SNES mode preserves the quantized
+    palette end-to-end (research_findings_visual.md 5.8).
     """
     fps = fps or SETTINGS.rate
     rate = rate or 22050
@@ -98,7 +106,11 @@ def write_video(frames: Iterator[np.ndarray], out_path: Path,
     cmd += _base_cmd("rgb24", fps)
     if audio is not None:
         cmd += _audio_input(rate)
-    cmd += ["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p"]
+    if snes_palette:
+        cmd += ["-c:v", "libx264rgb", "-pix_fmt", "rgb24", "-crf", "1",
+                "-preset", "veryfast"]
+    else:
+        cmd += ["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p"]
     if audio is not None:
         cmd += ["-c:a", "aac", "-shortest"]
     cmd += ["-movflags", "+faststart", str(tmp)]

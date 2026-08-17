@@ -55,6 +55,27 @@ _BEAT_PRIORITY = ["seeking_work", "feud", "friendship", "gag", "ratings", "show_
 # Formats where a guest actually makes sense (else we fall back to other beats).
 _GUEST_FORMATS = {"talk", "late_night", "game_show", "morning", "news"}
 
+# Improvement 3b: sibling genre sets per format for per-airing background
+# rotation. The canonical set (from SHOW_PRESETS) is always first; these siblings
+# let a fresh seed pick a visually-related-but-distinct set so the 24/7 feed is
+# not a byte-identical 2-loop. All siblings resolve to tvn.tilemap.TILEMAP_SETS.
+_FORMAT_SET_SIBLINGS = {
+    "news":       ["studio", "sports_arena"],
+    "morning":    ["talk_show", "news_studio"],
+    "talk":       ["studio", "game_show"],
+    "game_show":  ["studio", "news_studio"],
+    "soap":       ["diner", "talk_show"],
+    "late_night": ["talk_show", "studio"],
+    "cartoon":    ["cartoon_house"],
+    "sitcom":     ["cartoon_house", "diner"],
+    "psa":        ["studio"],
+    "sports":     ["sports_arena", "studio"],
+    "action":     ["city", "news_studio"],
+    "weather":    ["news_studio", "studio"],
+    "infomercial":["studio"],
+    "rerun":      ["cartoon_house", "studio"],
+}
+
 
 class GaryPD:
     def __init__(self, world):
@@ -250,8 +271,21 @@ class GaryPD:
                 motion=tpl["motion"] if spk in [c.name for c in casts] else "idle",
                 frames=max(60, int(18 * len(text) / 10))))
 
-        # background (preset + world mood)
-        bg = preset["sets"][0]
+        # background (preset + world mood).
+        # Improvement 3b: per-airing background variation. Each format's preset
+        # lists its canonical set, but a different seed rotates among the format's
+        # sibling genre sets so consecutive airings of the SAME slot differ in
+        # background (kills the byte-identical 2-loop documented in
+        # research_findings_visual.md 5.7). The canonical set is always first.
+        bg_pool = list(preset["sets"])
+        # add sibling genre sets for variety (same visual family, distinct art)
+        siblings = _FORMAT_SET_SIBLINGS.get(fmt, [])
+        bg_pool = [s for s in bg_pool if s not in siblings] + siblings
+        # Improvement 3b: derive background choice from a SEPARATE rng seeded
+        # from `seed` (not the shared beat rng, whose state has been consumed),
+        # so a fresh seed deterministically yields a different set.
+        bg_rng = random.Random((seed or 0) + 1)
+        bg = bg_pool[bg_rng.randrange(len(bg_pool))] if bg_pool else preset["sets"][0]
 
         # ticker derived from world (not static); only formats that allow the
         # topic get the corresponding ticker line (format coherence, WEAK-1a).

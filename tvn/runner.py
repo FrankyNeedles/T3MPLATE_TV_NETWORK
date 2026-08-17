@@ -71,7 +71,7 @@ def run_once(seconds: float = 30.0, out: Optional[Path] = None,
     center = renderer.Renderer()
     frames = segment_frames(seg, seconds=seconds, renderer_=center)
     a = segment_audio(seg, seconds, variant=_pass_counter)
-    output.write_video(frames, out, audio=a)
+    output.write_video(frames, out, audio=a, snes_palette=True)  # Improvement 3: SNES palette end-to-end
     return out
 
 
@@ -120,7 +120,7 @@ def _record_cycle(world, g, out_dir: Path, seconds: float = 12.0) -> Path:
     dur = seconds
     frames = segment_frames(seg, seconds=dur)
     a = segment_audio(seg, dur, variant=seed)
-    output.write_video(frames, out, audio=a)
+    output.write_video(frames, out, audio=a, snes_palette=True)  # Improvement 3: SNES palette end-to-end
     return out
 
 

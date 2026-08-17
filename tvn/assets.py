@@ -15,17 +15,52 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from .sprites import PAL, Canvas, _rgb, SpriteBank
+from .sprites import PAL, Canvas, _rgb, SpriteBank, _s
 from .config import SETTINGS
 
 NATIVE = SETTINGS.res_native  # (256, 224)
 
 # -- Deterministic noise-battery gates (RESEARCH_ASSETS 4.1/4.2) ---------------
+# Improvement 1 (asset-auth gap): the noise battery gates per-image validity
+# (dimensions, alpha, color count, SNES-15bit palette). Dedup of duplicate SMW
+# screenshots across genre labels is enforced in build_catalog() (per-build,
+# not global state) so 8 labels can't all read "ready" on 5 screenshots.
+
+
+def reset_gate_state() -> None:
+    """No-op kept for backward compat; dedup state is now per-catalog-build."""
+    pass
+
+
+def bg_sha256(img: Image.Image) -> str:
+    """Stable content hash of a background (RGBA bytes)."""
+    return hashlib.sha256(img.convert("RGBA").tobytes()).hexdigest()
+
+
+def _is_snes_15bit(rgb_arr: np.ndarray) -> bool:
+    """True if every opaque RGB channel is a valid SNES-15bit value.
+
+    SNES colors are 5-bit per channel rendered to 8-bit: {0, 8, 16, ..., 248}.
+    Channels outside this set (e.g. (0,0,1) from RetroArch scaler interpolation)
+    mean the frame is NOT SNES-native (research_findings_visual.md 5.3/5.4).
+    """
+    if rgb_arr.size == 0:
+        return True
+    bad = np.any(rgb_arr % 8 != 0, axis=-1)
+    return not bool(bad.any())
+
+
 def gate_image(img: Image.Image, n_tiles: int = 8, kind: str = "sprite",
                real_art: bool = False) -> dict[str, Any]:
     """Run content checks on an image. Returns metrics + all_passed bool.
     kind='background' relaxes the alpha/bbox bounds (full-frame sets are valid).
-    real_art=True allows authentic SNES colors >15 (captured/curated frames)."""
+    real_art=True allows authentic SNES colors >15 (captured/curated frames).
+
+    Improvement 1: for backgrounds, adds an SNES-15bit palette-validity check
+    (quarantines RetroArch-interpolated captures that leak non-SNES channel
+    values like (0,0,1)). Dedup of duplicate SMW screenshots is enforced in
+    build_catalog() (per-build), not here, to keep gate_image stateless.
+    """
     rgba = np.array(img.convert("RGBA"))
     alpha = rgba[..., 3]
     h, w = alpha.shape
@@ -52,7 +87,14 @@ def gate_image(img: Image.Image, n_tiles: int = 8, kind: str = "sprite",
         "used_colors": int(used_colors),
     }
     if kind == "background":
-        ok = coverage > 0.5 and used_colors >= 2 and w >= 64 and h >= 64
+        # Improvement 1: SNES-15bit palette validity -- every opaque RGB channel
+        # must be a multiple of 8 (channels {0,8,...,248}). RetroArch-scaled
+        # captures leak interpolated values like (0,0,1) -> quarantined.
+        rgb_arr = rgba[:, :, :3][alpha > 0]
+        snes_ok = _is_snes_15bit(rgb_arr)
+        checks["snes_palette_validity"] = bool(snes_ok)
+        ok = (snes_ok and coverage > 0.5
+              and used_colors >= 2 and w >= 64 and h >= 64)
     else:
         # Real SMW art legitimately uses more than 15 colors (native CGRAM
         # palettes + anti-aliased rips); the old upper bound was written for
@@ -95,12 +137,21 @@ def _bg_canvas() -> Canvas:
 def background(set_name: str) -> Image.Image:
     """Build a full-screen SNES set background (256x224).
 
-    Prefers a real emulator-captured frame at assets/backgrounds/real_<set>.png
-    (method:"emulator_capture", verified through gate_image); otherwise falls
-    back to the procedural curated painter. The real capture must be a
-    non-blank game screen -- anything failing the gate is quarantined here and
-    the procedural painter is used (graceful, honest degradation).
+    Priority (Improvement 2 -- stop showing SMW levels as T3MPLATE sets):
+      1. A T3MPLATE-constructed genre set (tvn.tilemap.constructed_set),
+         authored from the SNES 15-bit palette + the .bin tilemap layouts --
+         these are genuinely ours, not Nintendo screenshots.
+      2. A real emulator-captured frame (assets/backgrounds/real_<set>.png)
+         ONLY if it passes the noise battery (SMW screenshots now fail the
+         SNES-15bit palette gate -> quarantined -> skip).
+      3. The procedural curated painter (honest fallback).
+
+    See research_findings_visual.md sections 3.2/5.3/5.7 for the gap closed here.
     """
+    from . import tilemap
+    if set_name in tilemap.TILEMAP_SETS:
+        return tilemap.constructed_set(set_name)
+    # non-standard set names (batcave, generic) -> real capture or procedural
     real = _real_background(set_name)
     if real is not None:
         return real
@@ -261,22 +312,37 @@ def build_catalog() -> Path:
         return hashlib.sha256(img.tobytes()).hexdigest()[:16]
 
     bg_entries = []
+    # Improvement 1: dedup the 8 genre labels -- the manifest has 8 entries but
+    # only 5 unique SMW screenshots (news_studio==city==sports_arena, etc.).
+    # Track content hashes; later duplicates of an already-passing background
+    # are quarantined (reason "duplicate"); see research_findings_visual.md 3.2.
+    seen_bg: set[str] = set()
     # 1) real emulator-captured backgrounds (from assets/backgrounds/manifest.json)
     for m in _load_manifest(SETTINGS.root/"assets"/"backgrounds"/"manifest.json"):
         f = SETTINGS.root/"assets"/"backgrounds"/m["file"]
         img = Image.open(str(f)).convert("RGBA")
         gate = gate_image(img, kind="background")
-        bg_entries.append({
+        h = bg_sha256(img)
+        if h in seen_bg:
+            status, gate_reason, gate_override = "quarantined", "duplicate", {**gate, "all_passed": False}
+        else:
+            seen_bg.add(h)
+            status = "ready" if gate["all_passed"] else "quarantined"
+            gate_reason, gate_override = None, gate
+        entry = {
             "asset_id": m["asset_id"], "asset_type": "background",
-            "status": "ready" if gate["all_passed"] else "quarantined",
+            "status": status,
             "provenance": {
                 "method": "emulator_capture", "game": m["game"],
                 "rom_sha256": m["rom_sha256"], "emulator": m["emulator"],
                 "palette_source": "native SNES rendered output",
             },
             "artifact": {"dimensions": img.size, "sha256": sha(img)},
-            "verification": {"noise_battery": gate},
-        })
+            "verification": {"noise_battery": gate_override},
+        }
+        if gate_reason:
+            entry["gate_reason"] = gate_reason
+        bg_entries.append(entry)
     # 2) procedural placeholders for sets that have NO real capture (fallback)
     real_sets = {m["set_name"] for m in _load_manifest(
         SETTINGS.root/"assets"/"backgrounds"/"manifest.json")}

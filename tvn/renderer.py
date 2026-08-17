@@ -53,6 +53,35 @@ def _image(im: Image.Image, px_scale: int = SCALE) -> Image.Image:
     return im
 
 
+def _quantize_snes(img: Image.Image) -> Image.Image:
+    """Snap every RGB channel to the SNES 15-bit gamut {0, 8, ..., 248}.
+
+    Improvement 3 (asset-auth gap): the real SMW backgrounds leaked 13K-20K
+    interpolated channel values (RetroArch scaler artifacts). Snapping each
+    channel to the nearest multiple of 8 collapses the palette to <= 32,768
+    valid SNES colors end-to-end. Transparent pixels are preserved.
+    See research_findings_visual.md 5.3/5.8.
+    """
+    arr = np.asarray(img).astype(np.int16)
+    has_alpha = arr.shape[-1] == 4
+    rgb = arr[..., :3].astype(np.int16)
+    if has_alpha:
+        alpha = arr[..., 3]
+        opaque = alpha > 0
+        rgb[opaque] = ((rgb[opaque] + 4) // 8) * 8
+        rgb[~opaque] = 0  # transparent pixels stay black
+    else:
+        rgb = ((rgb + 4) // 8) * 8  # round-to-nearest multiple of 8
+    rgb = np.clip(rgb, 0, 248)
+    if has_alpha:
+        arr[..., :3] = rgb
+        out = arr
+    else:
+        out = rgb
+    return Image.fromarray(out.astype(np.uint8), img.mode)
+
+
+
 class Renderer:
     def __init__(self, bank: Optional[SpriteBank] = None, scale: int = SCALE):
         self.bank = bank or SpriteBank(2)   # on-screen sprites 2x native
@@ -240,6 +269,8 @@ class Renderer:
             self.draw_ticker(canvas, segment.ticker, ticker_offset)
         else:
             self.draw_bug(canvas, frame)
+        # Improvement 3: snap the composited frame to SNES 15-bit palette end-to-end.
+        canvas = _quantize_snes(canvas)
         return canvas
 
     def _scanlines(self, img: Image.Image) -> Image.Image:
@@ -282,6 +313,8 @@ def render_segment(segment: broadcast.BroadcastSegment,
         c = Image.new("RGBA", NATIVE, (0, 0, 0, 255))
         r.draw_bumper(c, segment.title, f)
         img = r._scanlines(c) if final else c
+        if final:
+            img = _quantize_snes(img)
         yield np.asarray(img)
     # show beats
     tick_off = 0
@@ -289,6 +322,11 @@ def render_segment(segment: broadcast.BroadcastSegment,
         tick_off = f * 4 % 300
         c = r.frame(segment, f, ticker_offset=tick_off)
         img = r._scanlines(c) if final else c
+        # Improvement 3: SNES quantize the FINAL frame (after scanlines/vignette,
+        # which multiply by 0.82/0.69 and reintroduce non-SNES channels). Snap
+        # to 15-bit palette end-to-end so the recorded MP4 is SNES-faithful.
+        if final:
+            img = _quantize_snes(img)
         yield np.asarray(img)
     # hand-off / coming-up promo
     for f in range(24):
@@ -297,4 +335,6 @@ def render_segment(segment: broadcast.BroadcastSegment,
         art = assets.promo_card("promo", segment.hand_off.replace(" is NEXT!", "") if segment.hand_off else "STAY TUNED", sub)
         c.alpha_composite(art, (0, 0))
         img = r._scanlines(c) if final else c
+        if final:
+            img = _quantize_snes(img)
         yield np.asarray(img)
