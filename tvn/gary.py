@@ -243,16 +243,18 @@ class GaryPD:
         # rotation per airing (GAP-3): a fresh seed -> a fresh dialogue variant
         chosen = rng.choice(variants)
 
+        # SPEAKER AND LINE FROM THE CHOSEN BEAT VARIANT
+        speaker, line = chosen
+
         dialog = []
-        for (speaker, line) in chosen:
-            text = line
-            spk = speaker
-            for k, v in fills.items():
-                if k.startswith("_"):
-                    continue
-                if text:
-                    text = text.replace("{" + k + "}", str(v))
-                spk = spk.replace("{" + k + "}", str(v))
+        text = line
+        spk = speaker
+        for k, v in fills.items():
+            if k.startswith("_"):
+                continue
+            if text:
+                text = text.replace("{" + k + "}", str(v))
+            spk = spk.replace("{" + k + "}", str(v))
             # a placeholder that never resolved (e.g. no live feud) -> safe name
             if "{" in spk:
                 spk = casts[0].name
