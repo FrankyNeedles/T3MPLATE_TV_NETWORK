@@ -149,17 +149,30 @@ class GaryPD:
             fills["guest"] = guest
             return "seeking_work", fills
 
-        # gag is narration, fine on most family/scripted formats
+        # Remaining beats (gag/ratings/show_promo) rotate their PRIORITY per
+        # airing (GAP-3): a fresh seed -> a DIFFERENT beat AND variant, so a
+        # format with few variants (e.g. an infomercial with one sales template)
+        # still yields distinct dialogue across consecutive airings instead of
+        # a byte-identical loop.
+        tail: list[str] = []
         if "gag" in allowed and digest["gags"]:
-            return "gag", fills
-
-        # ratings wins when a strong show exists
+            tail.append("gag")
         if "ratings" in allowed and digest["shows"]:
-            fills["show"] = fills["_top_show"]["name"]
-            fills["rating"] = fills["_top_show"]["rating"]
-            return "ratings", fills
-
-        # show promo is always a safe, format-neutral close
+            tail.append("ratings")
+        if "show_promo" in allowed and digest["shows"]:
+            tail.append("show_promo")
+        rng.shuffle(tail)
+        for beat_name in tail:
+            if beat_name == "gag":
+                return "gag", fills
+            if beat_name == "ratings":
+                fills["show"] = fills["_top_show"]["name"]
+                fills["rating"] = fills["_top_show"]["rating"]
+                return "ratings", fills
+            if beat_name == "show_promo":
+                fills["show"] = fills["_top_show"]["name"]
+                return "show_promo", fills
+        # safe close if nothing above matched
         if digest["shows"]:
             fills["show"] = fills["_top_show"]["name"]
         return "show_promo", fills
@@ -240,26 +253,33 @@ class GaryPD:
             variants = tpl["formats"][fmt]
         else:
             variants = tpl["variants"]
-        # rotation per airing (GAP-3): a fresh seed -> a fresh dialogue variant
-        chosen = rng.choice(variants)
-
-        # SPEAKER AND LINE FROM THE CHOSEN BEAT VARIANT
-        speaker, line = chosen
+        # rotation per airing (GAP-3): a fresh seed -> a fresh dialogue variant.
+        # A variant is a LIST of (speaker, line) beat-pairs (a feud/friendship
+        # is a two-liner, e.g. mario fires, then bowser retorts). Emit a Beat
+        # per pair, resolving placeholders from the live digest for each.
+        chosen_lines = rng.choice(variants)
 
         dialog = []
-        text = line
-        spk = speaker
-        for k, v in fills.items():
-            if k.startswith("_"):
-                continue
-            if text:
-                text = text.replace("{" + k + "}", str(v))
-            spk = spk.replace("{" + k + "}", str(v))
+        for spk0, line0 in chosen_lines:
+            text = line0
+            spk = spk0
+            for k, v in fills.items():
+                if k.startswith("_"):
+                    continue
+                if text:
+                    text = text.replace("{" + k + "}", str(v))
+                spk = spk.replace("{" + k + "}", str(v))
+            # host placeholders always resolve to a drawn host
+            host2 = casts[1].name if len(casts) > 1 else casts[0].name
+            spk = (spk.replace("{c1}", casts[0].name)
+                      .replace("{c2}", host2)
+                      .replace("{host}", casts[0].name))
+            text = (text.replace("{c1}", casts[0].name)
+                        .replace("{c2}", host2)
+                        .replace("{host}", casts[0].name))
             # a placeholder that never resolved (e.g. no live feud) -> safe name
             if "{" in spk:
                 spk = casts[0].name
-            text = text.replace("{c1}", casts[0].name).replace("{c2}",
-                     casts[1].name if len(casts) > 1 else casts[0].name).replace("{host}", casts[0].name)
             if text and "{" in text:  # drop unresolved braces (defensive, no slop text)
                 text = text.replace("{", "").replace("}", "")
             # every speaker must be a drawn cast member: add unseen speakers

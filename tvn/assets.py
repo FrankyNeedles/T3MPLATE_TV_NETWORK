@@ -21,6 +21,30 @@ from .config import SETTINGS
 NATIVE = SETTINGS.res_native  # (256, 224)
 
 # -- Deterministic noise-battery gates (RESEARCH_ASSETS 4.1/4.2) ---------------
+# Backward-compat no-op: the gate stack has no cross-call mutable state (the
+# catalog dedup is a per-build local), so there is nothing to reset. Kept for
+# callers/tests that flush gate state before a fresh measurement.
+def reset_gate_state() -> None:
+    """No-op retained for backward compatibility (was a cache flush)."""
+    return
+
+
+def _check_snes_palette_fidelity(img: Image.Image) -> bool:
+    """SNES 15-bit palette fidelity check (Improvement 1).
+
+    Every opaque pixel's RGB channels must be a multiple of 8 (5-bit channels,
+    {0, 8, ..., 248}). RetroArch/emulator-interpolated captures leak values like
+    RGB (0,0,1) or (200,3,120) -- non-SNES. Returns True iff all opaque pixels
+    are strictly SNES 15-bit.
+    """
+    rgba = np.array(img.convert("RGBA"))
+    alpha = rgba[..., 3]
+    px = rgba[alpha > 0][:, :3]
+    if len(px) == 0:
+        return False
+    return bool(np.all(px % 8 == 0))
+
+
 def gate_image(img: Image.Image, n_tiles: int = 8, kind: str = "sprite",
                real_art: bool = False) -> dict[str, Any]:
     """Run content checks on an image. Returns metrics + all_passed bool.
@@ -52,7 +76,12 @@ def gate_image(img: Image.Image, n_tiles: int = 8, kind: str = "sprite",
         "used_colors": int(used_colors),
     }
     if kind == "background":
-        ok = coverage > 0.5 and used_colors >= 2 and w >= 64 and h >= 64
+        # Improvement 1: a background must ALSO be SNES 15-bit (every opaque
+        # RGB channel a multiple of 8). Interpolated RetroArch captures leak
+        # non-SNES values and are quarantined. Folded into checks + all_passed.
+        snes_ok = _check_snes_palette_fidelity(img)
+        checks["snes_palette_validity"] = bool(snes_ok)
+        ok = coverage > 0.5 and used_colors >= 2 and w >= 64 and h >= 64 and snes_ok
     else:
         # Real SMW art legitimately uses more than 15 colors (native CGRAM
         # palettes + anti-aliased rips); the old upper bound was written for
@@ -261,22 +290,48 @@ def build_catalog() -> Path:
         return hashlib.sha256(img.tobytes()).hexdigest()[:16]
 
     bg_entries = []
+    # Per-build content-hash dedup (Improvement 1): the manifest may carry
+    # several entries whose PNG bytes are IDENTICAL (the old SMW-overworld
+    # sets shared ONE screenshot: news_studio==city==sports_arena). Only the
+    # FIRST unique image reads "ready"; every later byte-identical duplicate is
+    # quarantined with gate_reason="duplicate". Seen-set is per-build LOCAL
+    # state, so tests stay isolated (reset_gate_state() is a compat no-op).
+    seen_bg: set[str] = set()
+
+    def _emit_bg(img: Image.Image, asset_id: str, provenance: dict,
+                  dedup: bool = True) -> dict:
+        gate = gate_image(img, kind="background")
+        if dedup:
+            h = sha(img)
+            if h in seen_bg:
+                return {
+                    "asset_id": asset_id, "asset_type": "background",
+                    "status": "quarantined", "gate_reason": "duplicate",
+                    "provenance": provenance,
+                    "artifact": {"dimensions": img.size, "sha256": h},
+                    "verification": {"noise_battery": gate},
+                }
+            seen_bg.add(h)
+        else:
+            h = sha(img)
+        return {
+            "asset_id": asset_id, "asset_type": "background",
+            "status": "ready" if gate["all_passed"] else "quarantined",
+            "provenance": provenance,
+            "artifact": {"dimensions": img.size, "sha256": h},
+            "verification": {"noise_battery": gate},
+        }
+
+
     # 1) real emulator-captured backgrounds (from assets/backgrounds/manifest.json)
     for m in _load_manifest(SETTINGS.root/"assets"/"backgrounds"/"manifest.json"):
         f = SETTINGS.root/"assets"/"backgrounds"/m["file"]
         img = Image.open(str(f)).convert("RGBA")
-        gate = gate_image(img, kind="background")
-        bg_entries.append({
-            "asset_id": m["asset_id"], "asset_type": "background",
-            "status": "ready" if gate["all_passed"] else "quarantined",
-            "provenance": {
-                "method": "emulator_capture", "game": m["game"],
-                "rom_sha256": m["rom_sha256"], "emulator": m["emulator"],
-                "palette_source": "native SNES rendered output",
-            },
-            "artifact": {"dimensions": img.size, "sha256": sha(img)},
-            "verification": {"noise_battery": gate},
-        })
+        bg_entries.append(_emit_bg(img, m["asset_id"], {
+            "method": "emulator_capture", "game": m["game"],
+            "rom_sha256": m["rom_sha256"], "emulator": m["emulator"],
+            "palette_source": "native SNES rendered output",
+        }))
     # 2) procedural placeholders for sets that have NO real capture (fallback)
     real_sets = {m["set_name"] for m in _load_manifest(
         SETTINGS.root/"assets"/"backgrounds"/"manifest.json")}
@@ -285,15 +340,9 @@ def build_catalog() -> Path:
         if name in real_sets:
             continue
         img = background(name)
-        gate = gate_image(img, kind="background")
-        bg_entries.append({
-            "asset_id": f"bg_{name}", "asset_type": "background",
-            "status": "ready" if gate["all_passed"] else "quarantined",
-            "provenance": {"method": "procedural_curated", "note": "fallback; not a ROM rip"},
-            "artifact": {"dimensions": img.size, "sha256": sha(img)},
-            "verification": {"noise_battery": gate},
-        })
-
+        bg_entries.append(_emit_bg(img, f"bg_{name}", {
+            "method": "procedural_curated", "note": "fallback; not a ROM rip",
+        }, dedup=False))
     # sprites
     bank = SpriteBank(1)
     spr_entries = []
