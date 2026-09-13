@@ -179,12 +179,23 @@ def test_career_seeking_work_evolves_at_any_hour(world):
                           world.get_character("luigi").id)
     assert rel.score < before or len(cancelled) >= 0  # decay applies (0.98x)
 
-    # Direct: mark a show 'pitch' and confirm tick() flips cast to seeking work.
+
+    # Direct: mark a low-rated series and confirm tick() flips its cast to seeking
+    # work. Under the BUILD_SCOPE #1 lifecycle, seeking-work is driven by a
+    # CANCELLATION (a series whose rating <= 4.0 is cancelled -> cast seeks work),
+    # NOT by merely being pitched (a pitch now progresses to pilot instead).
     from tvn.world import Show
-    show = world.session.query(Show).first()
-    show.status = "pitch"
+    # Use a host (yoshi) who holds NO other live engagement, so a cancellation of
+    # their only series genuinely leaves them out of work (a star who ALSO hosts a
+    # live show correctly stays employed). The BUILD_SCOPE #1 lifecycle mints new
+    # pitch shows from strong storylines, so a seeded anchor like mario may pick up
+    # a new series and stop reading as "seeking work" -- that is the intended
+    # living-world behavior, not a stall.
+    if not world.session.query(Show).filter_by(name="Yoshi & Friends").first():
+        world.session.add(Show(name="Yoshi & Friends", status="series", genre="talk",
+                               rating=3.0, hosts=["yoshi"], episode_count=2, airings=2))
     world.session.commit()
     world.tick()
     moved = [c.character.name for c in world.session.query(Career).all()
              if c.seeking_work]
-    assert moved, "tick() did not drive career/seeking-work evolution"
+    assert "yoshi" in moved, "tick() did not drive career/seeking-work evolution"

@@ -110,9 +110,15 @@ class PodElement:
     seconds: int = 30
 
 
-def build_pod(daypart: str, next_show: str = "", seed: int | None = None) -> list[PodElement]:
+def build_pod(daypart: str, next_show: str = "", seed: int | None = None,
+              season: int | None = None) -> list[PodElement]:
     """A commercial pod is an ORDERED sequence: promo -> national xN ->
-    local x1-2 -> station id. News/access skew local; prime skews national."""
+    local x1-2 -> station id. News/access skew local; prime skews national.
+
+    `season` is the current REAL month; during a sweeps month (content.SWEEPS_MONTHS)
+    a special STUNT promo is injected into the pod (BUILD_SCOPE #1 sweeps wiring),
+    so the ad-break itself sells the sweep event.
+    """
     import random
     rng = random.Random(seed)
     local_pool = list(content.LOCAL_SPOTS)
@@ -124,6 +130,13 @@ def build_pod(daypart: str, next_show: str = "", seed: int | None = None) -> lis
 
     # 1. promo for the upcoming show
     elements.append(PodElement("promo", f"Next up: {sport}", 15))
+    # 1b. sweeps stunt promo (BUILD_SCOPE #1): during a sweeps month, lead the
+    # break with the special stunt event so the ad-break sells the sweep.
+    if season in content.SWEEPS_MONTHS:
+        stunts = content.SWEEPS_STUNTS.get(season, [])
+        if stunts:
+            stunt = rng.choice(stunts)
+            elements.insert(1, PodElement("promo", f"SWEEPS STUNT: {stunt}", 15))
     # 2. national spots (2-4)
     nationals = rng.sample(content.NATIONAL_SPOTS, k=rng.randint(2, 4))
     for n in nationals:

@@ -26,6 +26,11 @@ def main() -> int:
     args = ap.parse_args()
 
     world = open_world()   # persistent DB under data/lore/
+    # BUILD_SCOPE #1: advance the series lifecycle so the demo demonstrates the
+    # LIVING engine -- pitch shows are minted, pitch->pilot->series promotions and
+    # cancellations actually fire, and their events appear in the morning report
+    # (a merely "running" broadcast would show no lifecycle at all).
+    world.tick()
     print("=" * 64)
     print("T3MPLATE TV WORLD -- living 90s SNES broadcast")
     print("=" * 64)
@@ -41,6 +46,12 @@ def main() -> int:
     print("MORNING REPORT:")
     rep = world.morning_report()
     print(f"  shows: {rep['stats']['shows']} | relationships: {rep['stats']['relationships']}")
+    lc = rep["lifecycle"]
+    lc_str = ", ".join(f"{s}:{n}" for s, n in lc.items() if n)
+    print(f"  lifecycle: {lc_str}")
+    events = rep.get("lifecycle_events") or []
+    for e in events:
+        print(f"  [LIFECYCLE] {e}")
     for e in rep["recent_events"]:
         print(f"  - {e}")
     return 0

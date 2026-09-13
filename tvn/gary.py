@@ -126,6 +126,18 @@ class GaryPD:
         fills = self._enrich_fills(digest, rng)
         on_set = set(hosts)
 
+
+        # BUILD_SCOPE #1 sweeps wiring: during a sweeps month, a format that
+        # permits a stunt beat airs the special sweep event FIRST -- it is the
+        # highest-priority story of the week and outranks routine relational
+        # drama. Stunt titles come from content.SWEEPS_STUNTS for the month.
+        month = self.world.current_season()["month"]
+        if month in content.SWEEPS_MONTHS and "stunt" in allowed:
+            stunts = content.SWEEPS_STUNTS.get(month, [])
+            stunt = rng.choice(stunts) if stunts else "sweeps special event"
+            fills["stunt"] = stunt
+            fills["show"] = stunt
+            return "stunt", fills
         # relational beats first -- but only if the format permits them AND the
         # cast actually carries the relationship (re-key guest for the partner).
         # Among ALL candidate bonds, the seed rotates which pair airs (GAP-3).

@@ -11,6 +11,7 @@ Pipeline (wires world-state -> content -> render -> record, per RESEARCH_LIVING)
 """
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Iterator
 from datetime import datetime
@@ -203,3 +204,14 @@ def _maybe_tick(world):
     if _last_tick_ts is None or now - _last_tick_ts >= 3600:
         world.tick()
         _last_tick_ts = now
+        # BUILD_SCOPE #1 item 9 -- night-shift morning report. When the overnight
+        # maintenance tick lands in the pre-dawn hours (02:00-04:59), persist the
+        # generated morning report so a whole-lifecycle summary (pitch / pilot /
+        # syndication / cancellation / revival events among recent_events) is
+        # available downstream. NEVER blocks the render loop.
+        if datetime.now().hour in (2, 3, 4):
+            reports_dir = SETTINGS.output_dir / "morning_reports"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            with open(reports_dir / "latest.json", "w", encoding="utf-8") as f:
+                json.dump(world.morning_report(), f, indent=2)
+

@@ -122,6 +122,16 @@ SEASONS = {   # real calendar month -> (season, holiday/event driving programmin
     11: ("Fall", "Thanksgiving Sweeps"),
     12: ("Winter", "Holiday Specials"),
 }
+# Sweeps months (BUILD_SCOPE #1 revival gate + stunt wiring): Midsummer (7),
+# Halloween Haunt (10), Thanksgiving (11), Holiday Specials (12). A cancelled
+# series may ONLY revive inside a sweeps month, and podcasts inject stunt promos.
+SWEEPS_MONTHS = {7, 10, 11, 12}
+SWEEPS_STUNTS = {
+    7: ["Midsummer Championship: Mario vs Bowser", "Beach Bash Battle Royale"],
+    10: ["Halloween Haunt Crossover: Mario vs Bowser", "Night of the Koopas"],
+    11: ["Thanksgiving Sweeps: The Great Koopa Turkey Toss", "Feast of the Mushroom"],
+    12: ["Holiday Special: The Winter Pipe Race", "New Year Countdown at the Castle"],
+}
 # Per-genre episode title pools so each show's episodes have real, rotating titles.
 EPISODE_TITLES = {
     "news":      ["The Pipe-Leak Scandal", "Storm Watch", "Mushroom Budget Crisis",
@@ -153,14 +163,14 @@ EPISODE_TITLES = {
 FORMAT_ALLOWED_BEATS = {
     "news":        ("ratings", "show_promo", "gag"),
     "morning":     ("friendship", "gag", "show_promo", "ratings"),
-    "talk":        ("feud", "friendship", "gag", "show_promo", "ratings", "seeking_work"),
-    "game_show":   ("feud", "friendship", "gag", "show_promo", "ratings"),
+    "talk":        ("stunt", "feud", "friendship", "gag", "show_promo", "ratings", "seeking_work"),
+    "game_show":   ("stunt", "feud", "friendship", "gag", "show_promo", "ratings"),
     "soap":        ("feud", "friendship", "show_promo", "ratings"),
-    "late_night":  ("feud", "friendship", "gag", "show_promo", "ratings", "seeking_work"),
+    "late_night":  ("stunt", "feud", "friendship", "gag", "show_promo", "ratings", "seeking_work"),
     "cartoon":     ("gag", "friendship", "show_promo", "ratings"),
-    "sitcom":      ("gag", "friendship", "show_promo", "ratings"),
+    "sitcom":      ("stunt", "gag", "friendship", "show_promo", "ratings"),
     "sports":      ("ratings", "show_promo"),
-    "action":      ("show_promo", "ratings", "gag"),
+    "action":      ("stunt", "show_promo", "ratings", "gag"),
     "weather":     ("ratings", "show_promo"),
     "psa":         ("show_promo", "ratings"),
     "infomercial": ("show_promo", "ratings"),      # NEVER feud/friendship
@@ -319,6 +329,17 @@ FALLBACK_BEATS = {
                              ("{c2}", "A ratings drive the whole arena can cheer.")],
                         ],
         },
+        "motion": "happy",
+    },
+    "stunt": {
+        "story": "Sweeps night! A special stunt crossover event is on the air.",
+        "variants": [
+            [("{c1}", "Sweeps night viewers -- and we have a STUNT for you."),
+             ("{c2}", "Records will fall tonight. Do not change the channel.")],
+            [("{c1}", "A special stunt event, crafted just for this sweeps week."),
+             ("{c2}", "Only here on T3TV. This is what sweeps are for.")],
+        ],
+        "formats": {},
         "motion": "happy",
     },
 }

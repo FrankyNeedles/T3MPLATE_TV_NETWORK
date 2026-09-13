@@ -66,6 +66,9 @@ _ADD_COLUMNS = {
               ("arc_label", "VARCHAR(80) NOT NULL DEFAULT ''"),
               ("season", "VARCHAR(50) NOT NULL DEFAULT 'Season 1'")],
     "timeline_events": [("caused_by_event_id", "INTEGER")],
+    # BUILD_SCOPE #1: a legend retires (kept in history, out of the active cast
+    # pool) -- new COLUMN added here against an existing careers table.
+    "careers": [("retired", "BOOLEAN NOT NULL DEFAULT 0")],
 }
 
 
@@ -130,6 +133,9 @@ class Career(Base):
     career_level: Mapped[str] = mapped_column(String(20), default="intern")
     employer: Mapped[str] = mapped_column(String(80), default="")
     seeking_work: Mapped[bool] = mapped_column(Boolean, default=False)
+    # BUILD_SCOPE #1: a star who hits career_level == "legend" retires -- kept
+    # in history but removed from the active cast pool.
+    retired: Mapped[bool] = mapped_column(Boolean, default=False)
     character = relationship("Character", back_populates="careers")
 
 
@@ -554,6 +560,41 @@ class LivingWorld:
                     s.arc_label = f"{season['season']} Sweeps Run"
                 self.session.query(Show).filter_by(id=s.id).update(
                     {"arc_label": s.arc_label}, synchronize_session=False)
+
+            # BUILD_SCOPE #1 item 7 -- career evolution driven by SHOW performance.
+            # A strong (>= 8.0) show promotes a regular host to star; a 9.0+ star
+            # retires as a LEGEND (kept in history, out of the active cast pool); a
+            # collapsing (<= 3.0) show demotes a star back to regular. show_count
+            # accumulates per airing and the career rating mean-reverts toward 6.0
+            # (tracks the show but never pins).
+            for name in (s.hosts or cast):
+                career = self._career_for(name)
+                if career is None:
+                    continue
+                career.show_count = (career.show_count or 0) + 1
+                career.rating = round(0.7 * career.rating + 0.3 * min(10, max(1, s.rating)), 1)
+                if s.rating >= 8.0 and career.career_level == "regular":
+                    career.career_level = "star"
+                    self._note(f"{name} promoted to STAR", reason="show rating >= 8.0",
+                               outcome="promotion", caused_by_event_id=root)
+                elif s.rating >= 9.0 and career.career_level == "star":
+                    career.career_level = "legend"
+                    career.retired = True
+                    career.seeking_work = False
+                    self._note(f"{name} retires as a LEGEND", reason="show rating >= 9.0",
+                               outcome="retirement", caused_by_event_id=root)
+                elif s.rating <= 3.0 and career.career_level == "star":
+                    career.career_level = "regular"
+                    self._note(f"{name} demoted to REGULAR", reason="show rating <= 3.0",
+                               outcome="demotion", caused_by_event_id=root)
+
+        # BUILD_SCOPE #1 item 8 -- gag tracking fix (bump_gag had ZERO callers):
+        # any running gag whose associated cast is on-air today gets bumped so
+        # the running-gag counter is CAUSED by the world, not dead.
+        airing = set(cast)
+        for gag in self.session.query(RunningGag).all():
+            if set(gag.associated_characters or []) & airing:
+                self.bump_gag(gag.gag_text)
         self.session.commit()
 
     def bump_gag(self, gag_text: str):
@@ -566,40 +607,174 @@ class LivingWorld:
             self.session.commit()
 
     # -- daily / weekly maintenance -------------------------------------------
+    def _career_for(self, name: str):
+        """The Career row for a cast member (by character name), or None."""
+        return (self.session.query(Career).join(Character)
+                .filter(Character.name == name).first())
+
+    def _mint_pitch_shows(self):
+        """Pitch a NEW show for every strong story the network isn't yet airing.
+
+        BUILD_SCOPE #1 step 1: a Relationship carrying a directed arc_label whose
+        bond is STRONG (|score| > 50) and with NO active show on that arc gets
+        turned into a freshly-pitched Show. This is precisely what makes tick()
+        BIRTH shows -- the old tick never seeded a pitch, so the pitch filter
+        matched zero rows and the whole lifecycle engine was dead code.
+        """
+        active_arcs = {s.arc_label for s in self.session.query(Show).all()
+                       if s.arc_label}
+        for rel in self.session.query(Relationship).all():
+            if not rel.arc_label or rel.arc_label in active_arcs:
+                continue
+            if abs(rel.score) <= 50:          # not a strong enough story to greenlight
+                continue
+            a = rel.character1.name if rel.character1 else None
+            b = rel.character2.name if rel.character2 else None
+            if not a or not b:
+                continue
+            genre = "soap" if rel.score < 0 else "sitcom"   # feud drama / friend comedy
+            name = f"{a} & {b}: {rel.arc_label}"            # unique show name
+            if self.session.query(Show).filter_by(name=name).first():
+                continue
+            self.session.add(Show(name=name, status="pitch", genre=genre, rating=6.0,
+                                  hosts=[a, b], episode_count=0,
+                                  episode_title="Series Premiere",
+                                  arc_label=rel.arc_label))
+            self._note(f"network pitches '{name}' from the {rel.arc_label} storyline",
+                       reason=f"strong {rel.arc_label} bond ({rel.score}) with no show",
+                       outcome="pitch")
+
+    def _sync_seeking_work(self):
+        """Cast of a show that was CANCELLED (wrapped) looks for work; cast with a
+        live (pilot/series/syndication) show stays employed."""
+        live_hosts, cancelled_hosts = set(), set()
+        for show in self.session.query(Show).all():
+            hosts = set(show.hosts or [])
+            if show.status in ("series", "syndication", "pilot"):
+                live_hosts |= hosts
+            elif show.status == "cancellation":
+                cancelled_hosts |= hosts
+        for host in cancelled_hosts - live_hosts:
+            career = self._career_for(host)
+            if career and not career.seeking_work:
+                career.seeking_work = True
+                career.employer = ""
+                self._note(f"{host} is seeking work after their show wrapped",
+                           reason="show cancelled", outcome="seeking_work")
+                # BUILD_SCOPE #1 item 8 (second caller): the cancelling cast's own
+                # running gag resurfaces on the way out the door (causal, not
+                # dead). This is the seek-work tick path that gives bump_gag its
+                # second wired caller after on_air.
+                for gag in self.session.query(RunningGag).all():
+                    if set(gag.associated_characters or []) & {host}:
+                        self.bump_gag(gag.gag_text)
     def tick(self, days: int = 1):
-        """Evening maintenance: decay stale scores, occasionally set someone
-        seeking work if their show wrapped, evolve. Runs off-peak."""
+        """Evening lifecycle maintenance (BUILD_SCOPE #1): decay scores, run the
+        full series LIFECYCLE (pitch -> pilot -> series -> syndication/cancellation
+        -> sweeps revival) with rating gates and sweeps triggers, drive careers,
+        age gags. Runs off-peak; NEVER dead code -- this is what BIRTHS and KILLS
+        shows, converting a merely "running" broadcast into a LIVING one."""
         for rel in self.session.query(Relationship).all():
             rel.score = max(-100, min(100, int(rel.score * 0.98)))  # gentle decay
-        # a cancelled/pitch-only show drops to 'wraps'; cast seeks work
-        for show in self.session.query(Show).filter_by(status="pitch").all():
-            show.status = "cancellation"
-        cancelled = self.session.query(Show).filter_by(status="cancellation").all()
-        for show in cancelled:
-            for host in (show.hosts or []):
-                career = (self.session.query(Career).join(Character)
-                          .filter(Character.name == host).first())
-                if career:
-                    career.seeking_work = True
-                    career.employer = ""
-            self.session.query(Show).filter_by(id=show.id).update({"status": "syndication",
-                                                                   "rating": show.rating})
+
+        month = self.current_season()["month"]
+        sweeps = month in content.SWEEPS_MONTHS
+
+        # Capture the pitches present at the START of this tick so a show minted
+        # BELOW stays in "pitch" for at least one cycle (it must survive a real
+        # pitch->pilot order, not be promoted the instant it is born).
+        preexisting_pitch = {s.id for s in
+                             self.session.query(Show).filter_by(status="pitch").all()}
+
+        # 1. Mint PITCH shows from unresolved strong storylines.
+        self._mint_pitch_shows()
+
+        # 2. Pilot phase: a PRE-EXISTING pitch -> pilot (rating >= 6.0 seed baseline)
+        #    else it is dropped. A pitch NEVER goes straight to cancellation for merely
+        #    being pitched (old dead-code path removed); only a weak seed rating kills it.
+        for sid in preexisting_pitch:
+            show = self.session.query(Show).filter_by(id=sid).first()
+            if show is None or show.status != "pitch":
+                continue
+            show.status = "pilot" if show.rating >= 6.0 else "cancellation"
+            self._note(f"'{show.name}' {('greenlit to pilot' if show.status == 'pilot' else 'dropped at pitch')}",
+                       reason=f"pilot gate (rating {show.rating})", outcome=show.status)
+
+        # 3. Pilot -> series / failure. A pilot needs a min 3-airing window AND a
+        #    sustaining rating (>= 6.5) to earn a series order; a weak one (< 5.5)
+        #    is cancelled outright.
+        for show in self.session.query(Show).filter_by(status="pilot").all():
+            if show.airings >= 3 and show.rating >= 6.5:
+                show.status = "series"
+                self._note(f"'{show.name}' ordered to series",
+                           reason="pilot window + rating gate met", outcome="series")
+            elif show.rating < 5.5:
+                show.status = "cancellation"
+                self._note(f"'{show.name}' cancelled after a weak pilot",
+                           reason="rating < 5.5", outcome="cancellation")
+
+        # 4. Series -> syndication (rating gate, NOT unconditional as before).
+        for show in self.session.query(Show).filter_by(status="series").all():
+            if show.rating >= 8.0 and (show.episode_count or 0) >= 10:
+                show.status = "syndication"
+                self._note(f"'{show.name}' enters syndication",
+                           reason="rating >= 8.0 & 10 eps", outcome="syndication")
+
+        # 5. Series -> cancellation (rating gate).
+        for show in self.session.query(Show).filter_by(status="series").all():
+            if show.rating <= 4.0:
+                show.status = "cancellation"
+                self._note(f"'{show.name}' cancelled on ratings",
+                           reason="rating <= 4.0", outcome="cancellation")
+
+        # 6. Cancellation -> revival, ONLY inside a sweeps month (Midsummer 7 /
+        #    Halloween 10 / Thanksgiving 11 / Holiday 12) and only for shows with
+        #    residual demand (rating >= 7.5).
+        if sweeps:
+            for show in self.session.query(Show).filter_by(status="cancellation").all():
+                if show.rating >= 7.5:
+                    for host in (show.hosts or []):
+                        career = self._career_for(host)
+                        if career:
+                            career.seeking_work = False
+                            career.employer = show.name
+                    show.status = "pilot"
+                    self._note(f"'{show.name}' revived for the {month} sweeps",
+                               reason="sweeps revival gate (rating >= 7.5)",
+                               outcome="pilot")
+
+        # 7. Cast whose show is cancelled/wrapped seeks work.
+        self._sync_seeking_work()
+
+        # 8. Age gags.
         for gag in self.session.query(RunningGag).all():
             if (datetime.now() - gag.last_used) > timedelta(days=4):
                 gag.occurrence_count = max(0, int(gag.occurrence_count * 0.8))
+
         self.session.commit()
 
     # -- morning report --------------------------------------------------------
     def morning_report(self) -> dict:
         d = self.world_digest()
         evs = (self.session.query(TimelineEvent)
-               .order_by(TimelineEvent.date.desc()).limit(6).all())
+               .order_by(TimelineEvent.date.desc()).limit(12).all())
+        shows_by_status = {s[0]: self.session.query(Show).filter_by(status=s[0]).count()
+                           for s in [("pitch",), ("pilot",), ("series",),
+                                     ("syndication",), ("cancellation",)]}
+        lc_keywords = ("pitch", "pilot", "syndication", "cancellation",
+                       "revived", "ordered to series", "greenlit", "dropped at")
         return {
             "date": datetime.now().strftime("%Y-%m-%d"),
             "season": d["season"],
             "stats": {"characters": self.session.query(Character).count(),
                       "relationships": self.session.query(Relationship).count(),
                       "shows": self.session.query(Show).count()},
+            "lifecycle": shows_by_status,
+            # BUILD_SCOPE #1: the survival-set of recent series-lifecycle events
+            # (pitch/pilot/syndication/cancellation/revival), so a morning report
+            # surfaces that the broadcast is LIVING, not merely running.
+            "lifecycle_events": [e.event for e in evs
+                                 if any(kw in e.event.lower() for kw in lc_keywords)],
             "friendships": d["friendships"],
             "feuds": d["feuds"],
             "shows": d["shows"],
