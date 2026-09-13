@@ -4,8 +4,9 @@ Integration Test: 24hr Simulation
 Simulates shows, updates world, generates report.
 """
 
-from app.living_world import LivingWorld, Relationship
 import random
+
+from app.living_world import LivingWorld, Relationship
 
 
 def simulate_24hr():

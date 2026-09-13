@@ -4,8 +4,8 @@ and the world's causal `reason` / `caused_by_event_id` chain (RESEARCH I3).
 """
 import pytest
 
-from tvn import gary, programming, content
-from tvn.world import LivingWorld, TimelineEvent, SeasonState, Relationship, Show
+from tvn import content, gary, programming
+from tvn.world import LivingWorld, SeasonState, Show, TimelineEvent
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ PSA_SLOTS = [
 def test_non_skit_format_never_airs_feud(g, slot):
     """WEAK-1a -- an infomercial / PSA slot must NEVER carry a feud skit,
     regardless of seed (the critique's own refutation of the bug)."""
-    for seed in range(0, 6):
+    for seed in range(6):
         seg = g.decide(slot, seed=seed)
         all_lines = " ".join(b.text.lower() for b in seg.beats)
         # the feud template's lines / feud-rehash markers are absent
@@ -63,7 +63,7 @@ def test_feud_references_real_world_feud_actor(g):
     feud_actors = {x for p in feuds_by_name for x in p}
     feud_markers = ("we absolutely are", "rehash", "battlefield", "buzzer", "my sweep")
     seen_feud_actor = False
-    for seed in range(0, 8):
+    for seed in range(8):
         seg = g.decide(slot, seed=seed)
         speakers = {b.speaker for b in seg.beats}
         if any(m in b.text for b in seg.beats for m in feud_markers):
@@ -76,7 +76,7 @@ def test_feud_references_real_world_feud_actor(g):
 def test_all_feud_bets_on_set_format_skip_when_not_allowed(g):
     """WEAK-1b -- even a feud-capable format never forces a relational speaker
     that isn't a real relationship participant; seeds rotate to safe beats."""
-    for seed in range(0, 8):
+    for seed in range(8):
         g.decide(programming.Slot(10 * 60, "daytime", "Name That Mushroom",
                                   "game_show", 60), seed=seed)
 
@@ -88,7 +88,7 @@ def test_different_seeds_produce_different_dialogue(g):
     slot = programming.Slot(3 * 60, "overnight", "The Power-Up 9000 Infomercial",
                             "infomercial", 60)
     texts = set()
-    for seed in range(0, 8):
+    for seed in range(8):
         seg = g.decide(slot, seed=seed)
         texts.add(tuple(b.text for b in seg.beats))
     assert len(texts) >= 3, f"only {len(texts)} distinct airings across 8 seeds"

@@ -4,10 +4,11 @@ Gary Integration Test
 End-to-end: Gary decision → validation → execution.
 """
 
-from app.gary import GaryPD
-from app.action_trigger import action_trigger
-from app.living_world import living_world
 import random
+
+from app.action_trigger import action_trigger
+from app.gary import GaryPD
+from app.living_world import living_world
 
 
 def test_full_pipeline():

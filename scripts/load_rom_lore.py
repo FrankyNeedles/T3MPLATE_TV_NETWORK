@@ -6,8 +6,9 @@ Strings/music/enemies → LoreEntry table for Gary gossip.
 
 import json
 from pathlib import Path
-from app.living_world import living_world, Base
-from sqlalchemy import Column, String, Integer, Text, ForeignKey
+
+from app.living_world import Base, living_world
+from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.orm import sessionmaker
 
 LORE_DIR = Path("assets/rom_lore")

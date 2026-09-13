@@ -5,9 +5,9 @@ E2E station tick → Gary decision → render/audio → API status.
 """
 
 import requests
-from app.station import station
 from app.action_trigger import action_trigger
 from app.living_world import Relationship
+from app.station import station
 
 
 def test_station_tick():

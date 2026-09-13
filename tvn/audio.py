@@ -15,10 +15,7 @@ changing the broadcast code.
 from __future__ import annotations
 
 import wave
-import struct
-import hashlib
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -118,7 +115,7 @@ def _real_bed_candidates(track: str) -> list[Path]:
 
 # --- real SPC capture hook (honest path) ------------------------------------
 def capture_spc_via_emulator(rom: Path, out_spc: Path, retroarch: str = "",
-                             bed: str = "real_smw_title") -> Optional[Path]:
+                             bed: str = "real_smw_title") -> Path | None:
     """Interface for the REAL audio route (per RESEARCH_SNES sec 4/6).
 
     Two modes:
@@ -149,7 +146,7 @@ def capture_spc_via_emulator(rom: Path, out_spc: Path, retroarch: str = "",
     return None
 
 
-def _find_spc_player() -> Optional[Path]:
+def _find_spc_player() -> Path | None:
     """Locate a real SPC->WAV renderer on PATH, else None. This machine ships
     with no SPC player installed (verified 2026-08); if one appears later the
     full .spc round-trip activates automatically."""
@@ -161,10 +158,10 @@ def _find_spc_player() -> Optional[Path]:
     return None
 
 
-def _render_spc_to_wav(player: Path, spc: Path) -> Optional[Path]:
+def _render_spc_to_wav(player: Path, spc: Path) -> Path | None:
     """Render an SPC file to WAV with the given SPC player. Shape: real SPC in
     -> 44.1k stereo WAV out. Returns the WAV path or None on failure."""
-    import subprocess, tempfile
+    import subprocess
     out = AUDIO_DIR / f"real_{spc.stem}.wav"
     try:
         if player.name == "pybrr":

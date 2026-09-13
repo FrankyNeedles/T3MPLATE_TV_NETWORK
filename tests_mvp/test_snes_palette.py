@@ -11,7 +11,7 @@ See research_findings_visual.md section 2.2 (background color fidelity) and
 """
 import numpy as np
 
-from tvn import renderer, gary, programming, content
+from tvn import gary, programming, renderer
 from tvn.world import LivingWorld
 
 
@@ -75,7 +75,7 @@ def test_more_than_two_unique_frames_in_run():
     g = gary.GaryPD(world)
     slot = programming.Slot(60, "daytime", "The News", "news", 60)
     backgrounds = set()
-    for seed in range(0, 16):
+    for seed in range(16):
         seg = g.decide(slot, seed=seed)
         backgrounds.add(seg.background)
     assert len(backgrounds) >= 3, f"only {len(backgrounds)} unique backgrounds across 16 seeds (2-loop bug)"

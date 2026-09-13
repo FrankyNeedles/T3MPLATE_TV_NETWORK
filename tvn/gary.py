@@ -11,14 +11,12 @@ director (the '_fallback_decision' role defined as The Mushroom Network's brain)
 from __future__ import annotations
 
 import random
-from dataclasses import asdict
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
-from . import content, broadcast
-from .animation import library as movement_library
+from . import broadcast, content
 
 
 class GaryDecision(BaseModel):
@@ -177,7 +175,7 @@ class GaryPD:
             fills["show"] = fills["_top_show"]["name"]
         return "show_promo", fills
 
-    def _missing_member(self, rel: dict, on_set: set[str]) -> Optional[str]:
+    def _missing_member(self, rel: dict, on_set: set[str]) -> str | None:
         """The participant not currently over the mic (becomes the guest)."""
         a, b = rel["a"], rel["b"]
         if a not in on_set:
@@ -191,7 +189,7 @@ class GaryPD:
                 "seeking_work": "warm", "ratings": "celebratory"}.get(beat, "neutral")
 
     # -- segment production ---------------------------------------------------
-    def decide(self, slot, seed: Optional[int] = None) -> broadcast.BroadcastSegment:
+    def decide(self, slot, seed: int | None = None) -> broadcast.BroadcastSegment:
         """Produce a renderable BroadcastSegment for the active grid slot,
         caused by the world digest. `seed` seeds per-airing novelty (GAP-3): a
         different seed per pass -> different world pair / dialogue variant, so

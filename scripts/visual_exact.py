@@ -6,8 +6,8 @@ Level1.
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from PIL import Image
 from app.station import Station  # decode_snes_sprite
 from extractors.world_asset_extractor import RomAssetExtractor
 

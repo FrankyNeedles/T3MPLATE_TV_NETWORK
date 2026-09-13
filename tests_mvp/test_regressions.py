@@ -6,8 +6,8 @@ and asserts the FIXED behaviour, not the old buggy one.
 import numpy as np
 import pytest
 
-from tvn import gary, output, programming, renderer, runner, content
-from tvn.world import LivingWorld, Character
+from tvn import content, gary, output, programming, renderer, runner
+from tvn.world import Character, LivingWorld
 
 
 @pytest.fixture

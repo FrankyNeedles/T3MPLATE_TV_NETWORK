@@ -13,7 +13,7 @@ import hashlib
 import numpy as np
 import pytest
 
-from tvn import tilemap, assets, sprites
+from tvn import assets, tilemap
 from tvn.config import SETTINGS
 
 

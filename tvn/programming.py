@@ -8,9 +8,9 @@ from what's on screen, and models the commercial pod grammar + hand-offs.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, time as dt_time
-from typing import Optional
+from dataclasses import dataclass
+from datetime import datetime
+from datetime import time as dt_time
 
 from . import content
 
@@ -58,7 +58,7 @@ GRID = [
 GRID.sort(key=lambda s: s.start_min)
 
 
-def get_current_daypart(now: Optional[datetime] = None) -> str:
+def get_current_daypart(now: datetime | None = None) -> str:
     """Return the industry-style daypart block for a wall clock (RESEARCH_90S sec 1)."""
     now = now or datetime.now()
     t = now.time()
@@ -83,7 +83,7 @@ def get_current_daypart(now: Optional[datetime] = None) -> str:
     return "late_news"
 
 
-def get_slot(now: Optional[datetime] = None) -> Slot:
+def get_slot(now: datetime | None = None) -> Slot:
     """Active grid slot for a given clock (mod-24h)."""
     now = now or datetime.now()
     minutes = now.hour * 60 + now.minute
@@ -110,7 +110,7 @@ class PodElement:
     seconds: int = 30
 
 
-def build_pod(daypart: str, next_show: str = "", seed: Optional[int] = None) -> list[PodElement]:
+def build_pod(daypart: str, next_show: str = "", seed: int | None = None) -> list[PodElement]:
     """A commercial pod is an ORDERED sequence: promo -> national xN ->
     local x1-2 -> station id. News/access skew local; prime skews national."""
     import random
@@ -157,6 +157,6 @@ def build_handoff(from_show: str, to_show: str) -> HandOff:
                    tag=f"That's {from_show} for today. We'll see you at the top of the hour.")
 
 
-def display_time(now: Optional[datetime] = None) -> str:
+def display_time(now: datetime | None = None) -> str:
     now = now or datetime.now()
     return now.strftime("%I:%M %p").lstrip("0")

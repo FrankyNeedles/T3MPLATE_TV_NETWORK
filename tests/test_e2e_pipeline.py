@@ -1,21 +1,23 @@
+from unittest.mock import patch
+
 import pytest
+from app.action_trigger import ActionTrigger
+from app.audio import audio_engine as AudioPlayer
+from app.gary import gary as Gary
+from app.living_world import Character
+from app.renderer import Renderer
 from app.run import full_pipeline
 from sqlalchemy.orm import Session
-from app.living_world import Character
-from app.gary import gary as Gary
-from app.action_trigger import ActionTrigger
-from app.renderer import Renderer
-from app.audio import audio_engine as AudioPlayer
-from unittest.mock import patch
 
 try:
     import pygame
 except ImportError:
     pygame = None
-import time
-from playwright.async_api import async_playwright
-from pathlib import Path
 import json
+import time
+from pathlib import Path
+
+from playwright.async_api import async_playwright
 
 
 @pytest.fixture

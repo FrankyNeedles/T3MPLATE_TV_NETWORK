@@ -9,14 +9,15 @@ reach a frame -- fail loud, quarantine, never slop.
 """
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from typing import Any
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from .sprites import PAL, Canvas, _rgb, SpriteBank
 from .config import SETTINGS
+from .sprites import Canvas, SpriteBank
 
 NATIVE = SETTINGS.res_native  # (256, 224)
 

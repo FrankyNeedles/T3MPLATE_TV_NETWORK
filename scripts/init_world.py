@@ -6,12 +6,12 @@ Creates tables, populates from characters.json + rom_lore/*.json.
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from app.living_world import LivingWorld, generate_morning_report
-from app.characters import load_characters_from_assets
-from sqlalchemy import Column, String, Integer, Text, DateTime
 import json
-from sqlalchemy.orm import sessionmaker
+
+from app.characters import load_characters_from_assets
+from app.living_world import LivingWorld, generate_morning_report
 
 # Init DB
 lw = LivingWorld()

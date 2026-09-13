@@ -8,10 +8,10 @@ Sample 5 ROMs.
 import json
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from PIL import Image
-from extractors.world_asset_extractor import RomAssetExtractor as WorldAssetExtractor
 from app.snes_scene_engine import ANIMATION_POSES  # Pose deltas
+from extractors.world_asset_extractor import RomAssetExtractor as WorldAssetExtractor
 
 extractor = WorldAssetExtractor()
 rom_ids = ['super_mario_world', 'zelda_lttp', 'chrono_trigger', 'donkey_kong_country', 'star_fox']

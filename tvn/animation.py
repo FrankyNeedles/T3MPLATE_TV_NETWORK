@@ -11,8 +11,7 @@ sprite animation and re-usable across every show/every event.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -24,7 +23,7 @@ class MotionClip:
     fps: float = 6            # SNES-era chunky animation cadence
     loop: bool = True
     category: str = "idle"    # idle | walk | action | reaction
-    emote: Optional[str] = None  # mood bias for dialogue (cheerful/angry/...)
+    emote: str | None = None  # mood bias for dialogue (cheerful/angry/...)
 
 
 # --- The canonical motion set every character supports -----------------------

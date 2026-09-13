@@ -1,7 +1,7 @@
 """Living-world continuity engine tests."""
 import pytest
 
-from tvn.world import LivingWorld, Character
+from tvn.world import Character, LivingWorld
 
 
 @pytest.fixture

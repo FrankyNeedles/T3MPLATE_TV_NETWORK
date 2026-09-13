@@ -1,8 +1,8 @@
 """Gary PD / decision engine tests."""
 import pytest
 
+from tvn import content, gary, programming
 from tvn.world import LivingWorld
-from tvn import gary, programming, content
 
 
 @pytest.fixture

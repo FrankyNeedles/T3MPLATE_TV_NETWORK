@@ -6,11 +6,10 @@ Directly encodes the critique's concrete suggestion (mean-reversion) with causal
 semantics: mutate toward a SIGNED baseline (friends +BASELINE, feuds -BASELINE),
 never a random walk.
 """
-import time
 import pytest
 
-from tvn.world import LivingWorld, Character, Relationship, Career
 from tvn import runner
+from tvn.world import Career, LivingWorld
 
 BASELINE = 65.0   # resting magnitude a mature aired bond oscillates around
 

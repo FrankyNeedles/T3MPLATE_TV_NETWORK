@@ -12,7 +12,6 @@ state; the runner feeds the frames to ffmpeg.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -45,11 +44,11 @@ class BroadcastSegment:
     bumper: bool = True
     commercial: bool = False
     promo: bool = False
-    psa: Optional[str] = None
+    psa: str | None = None
     station_id: bool = False
     hand_off: str = ""
 
-    def by_kind(self, kind: str) -> Optional[Cast]:
+    def by_kind(self, kind: str) -> Cast | None:
         for c in self.cast:
             if c.kind == kind:
                 return c

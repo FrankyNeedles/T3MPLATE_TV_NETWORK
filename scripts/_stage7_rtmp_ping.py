@@ -10,7 +10,7 @@ then closes stdin cleanly (stream_rtmp returns), letting the test finish.
 import argparse
 import sys
 
-from tvn import audio, output, runner, gary, programming, renderer
+from tvn import audio, gary, output, programming, renderer, runner
 from tvn.config import SETTINGS
 from tvn.world import open_world
 

@@ -3,14 +3,15 @@ Tests for SNES Scene Engine - Gary's programmatic scene creation interface.
 """
 
 from pathlib import Path
+
 from app.snes_scene_engine import (
-    SNESSceneEngine,
-    SceneDirector,
-    GameSceneLibrary,
-    SNESScene,
-    SpriteReference,
     AudioReference,
     BackgroundReference,
+    GameSceneLibrary,
+    SceneDirector,
+    SNESScene,
+    SNESSceneEngine,
+    SpriteReference,
 )
 
 

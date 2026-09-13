@@ -1,7 +1,8 @@
-from unittest.mock import Mock
-from tcrf_scraper import daily_tcrf_scrape
 import json
 from pathlib import Path
+from unittest.mock import Mock
+
+from tcrf_scraper import daily_tcrf_scrape
 
 
 def test_scrape_mock(mock_get):

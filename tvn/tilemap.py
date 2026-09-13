@@ -24,14 +24,12 @@ from __future__ import annotations
 
 import struct
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 
-from .sprites import PAL, _s, Canvas
 from .config import SETTINGS
-from . import assets
+from .sprites import Canvas
 
 NATIVE = SETTINGS.res_native  # (256, 224)
 

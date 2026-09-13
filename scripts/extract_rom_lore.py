@@ -4,20 +4,18 @@ Extract ROM Lore – Strings/Music/Enemies for Gary World-Building.
 Lightweight JSON/ROM (~1KB).
 """
 
-import re
 import json
+import re
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from typing import Dict, List
-import struct
-from extractors.snes_rom_hacker import SNESROMTools
 
 ROM_DIR = Path("ROM_SOURCE/unzipped")
 LORE_DIR = Path("assets/rom_lore")
 LORE_DIR.mkdir(exist_ok=True, parents=True)
 
-def extract_lore(rom_path: Path) -> Dict:
+def extract_lore(rom_path: Path) -> dict:
     """Extract strings/music/enemies."""
     title = rom_path.stem.replace(" (USA)", "").replace(" ", "_")[:50]
     data = rom_path.read_bytes()

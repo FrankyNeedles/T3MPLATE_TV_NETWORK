@@ -1,4 +1,4 @@
-from app.gary import GaryPD, gary, TV_SHOW_PRESETS, WORLD_LORE
+from app.gary import TV_SHOW_PRESETS, WORLD_LORE, GaryPD, gary
 
 
 def test_gary_initialization():

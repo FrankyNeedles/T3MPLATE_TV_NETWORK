@@ -7,6 +7,7 @@ fail the gate. Exit 0 = valid; non-zero with diagnostics otherwise.
 Usage:  python scripts/validate_movements.py
 """
 from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path

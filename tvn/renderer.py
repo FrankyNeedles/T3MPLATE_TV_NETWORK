@@ -12,14 +12,15 @@ Renders at native 256x224 then integer-upscales with scanlines (SNES-faithful).
 """
 from __future__ import annotations
 
-from typing import Iterator, Optional
+from collections.abc import Iterator
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from . import assets, broadcast
 from .animation import library as movement_library
-from .sprites import SpriteBank
 from .config import SETTINGS
+from .sprites import SpriteBank
 
 NATIVE = SETTINGS.res_native
 SCALE = SETTINGS.scale
@@ -83,7 +84,7 @@ def _quantize_snes(img: Image.Image) -> Image.Image:
 
 
 class Renderer:
-    def __init__(self, bank: Optional[SpriteBank] = None, scale: int = SCALE):
+    def __init__(self, bank: SpriteBank | None = None, scale: int = SCALE):
         self.bank = bank or SpriteBank(2)   # on-screen sprites 2x native
         self.scale = scale
         self._catalog = assets.ready_assets()
@@ -117,7 +118,7 @@ class Renderer:
         return last, acc
 
     @staticmethod
-    def _motion_for(c: broadcast.Cast, beat: Optional[broadcast.Beat]) -> str:
+    def _motion_for(c: broadcast.Cast, beat: broadcast.Beat | None) -> str:
         """Per-cast motion for a frame: the ACTIVE beat's speaker animates with
         the beat's motion (talk/happy/walk/wave -- F-1.1); everyone else stays
         in the library's idle clip. `Cast.motion` is no longer authoritative
@@ -127,7 +128,7 @@ class Renderer:
         return "idle"
 
     def draw_cast(self, canvas: Image.Image, segment: broadcast.BroadcastSegment,
-                  frame: int, beat: Optional[broadcast.Beat] = None,
+                  frame: int, beat: broadcast.Beat | None = None,
                   walk_offset: float = 0.0):
         """Place + animate cast (movement library drives pose selection).
 
@@ -291,7 +292,7 @@ class Renderer:
 
 
 def render_segment(segment: broadcast.BroadcastSegment,
-                   final=True, renderer: Optional[Renderer] = None,
+                   final=True, renderer: Renderer | None = None,
                    fps: int = 0) -> Iterator[np.ndarray]:
     """Yield broadcast frames for a segment as RGB uint8 arrays (streamable).
 

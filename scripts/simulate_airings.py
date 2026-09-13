@@ -8,7 +8,8 @@ mean-reverts and oscillates around its signed baseline (friends ~+65, feuds
 
 Run: python scripts/simulate_airings.py
 """
-from tvn.world import LivingWorld, Relationship
+from tvn.world import LivingWorld
+
 
 def long_run(cast, show, tension_pat, n=400, tick_every=40, start=90):
     w = LivingWorld("sqlite:///:memory:")

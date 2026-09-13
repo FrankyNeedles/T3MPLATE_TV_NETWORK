@@ -5,14 +5,15 @@ E2E: ROM extraction → Gary decision → action execution → broadcast tick �
 Includes TCRF cross-check and 24hr load sim.
 """
 
-import pytest
 from pathlib import Path
-from app.config import CONFIG
-from extractors.authentic_snes_extractor import AuthenticSNESExtractor
-from app.gary import gary
+
+import pytest
 from app.action_trigger import action_trigger
-from app.station import station
+from app.config import CONFIG
+from app.gary import gary
 from app.living_world import Relationship
+from app.station import station
+from extractors.authentic_snes_extractor import AuthenticSNESExtractor
 
 
 @pytest.fixture(scope="session")

@@ -10,12 +10,10 @@
 """
 import numpy as np
 import pytest
-
 from PIL import Image
 
-from tvn import broadcast, renderer, programming, assets, content
-from tvn.world import LivingWorld, Show, Character, Relationship
-from tvn.animation import library
+from tvn import assets, broadcast, content, programming, renderer
+from tvn.world import LivingWorld, Show
 
 
 # ---- F-1.1: on-air animation is driven by Beat.motion ---------------------
@@ -92,7 +90,6 @@ def test_render_segment_has_motion_between_show_frames():
 def test_seeking_work_beat_uses_walk_motion():
     """F-1.1 -- the seeking-work beat (a guest crossing the stage) carries the
     `walk` motion so the renderer produces a real cross-slot slide, not idle."""
-    from tvn import content
     assert content.FALLBACK_BEATS["seeking_work"]["motion"] == "walk"
 
 
@@ -161,6 +158,7 @@ def test_cast_catalog_yoshi_bowser_ready_after_rekey():
     """F-1.2/1.3/1.4 -- the rebuilt catalog marks the re-keyed yoshi/bowser
     frames ready (broken un-keyed box no longer slips through)."""
     import json
+
     from tvn.config import SETTINGS
     data = json.loads(SETTINGS.asset_catalog_path.read_text(encoding="utf-8"))
     by_id = {a["asset_id"]: a for a in data["assets"]}

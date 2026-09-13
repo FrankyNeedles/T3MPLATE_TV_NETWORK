@@ -4,11 +4,11 @@ Level1: Player Characters (bank 0x02).
 Extract ~80 TV-ready chars for Gary.
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from PIL import Image
 from extractors.world_asset_extractor import WorldAssetExtractor
 
 extractor = WorldAssetExtractor()

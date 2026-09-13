@@ -1,6 +1,5 @@
 """Programming (fixed 90s grid + pod grammar) tests."""
 from datetime import datetime
-import pytest
 
 from tvn import programming
 

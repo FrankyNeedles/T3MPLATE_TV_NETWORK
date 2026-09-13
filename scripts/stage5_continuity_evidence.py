@@ -10,12 +10,11 @@ runner._record_cycle does, minus the ffmpeg encode -- and proves:
 """
 import sys
 from pathlib import Path
-import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tvn import gary, programming
-from tvn.world import open_world, Show, Relationship, Character
+from tvn.world import Relationship, Show, open_world
 
 
 def main():

@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import os
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, Optional
 
 import numpy as np
 
@@ -44,7 +44,7 @@ def _audio_input(rate: int = None) -> list[str]:
     return ["-f", "s16le", "-ar", str(rate or 22050), "-ac", "1", "-i", "-"]
 
 
-def _pcm_to_samples(audio: Optional[bytes], rate: int = None) -> int:
+def _pcm_to_samples(audio: bytes | None, rate: int = None) -> int:
     """Number of PCM16 mono samples in an audio byte buffer (<= 0 if audio None)."""
     if not audio:
         return 0
@@ -62,8 +62,8 @@ def _av_sync_ok(audio_samples: int, n_frames: int, fps: int, rate: int,
     return abs(audio_dur - video_dur) < tol
 
 
-def _pad_audio_to_frames(audio: Optional[bytes], n_frames: int, fps: int,
-                         rate: int = None) -> Optional[bytes]:
+def _pad_audio_to_frames(audio: bytes | None, n_frames: int, fps: int,
+                         rate: int = None) -> bytes | None:
     """Trim or zero-pad PCM16 audio to exactly `n_frames` of video (A/V lock)."""
     if audio is None:
         return None
@@ -78,7 +78,7 @@ def _pad_audio_to_frames(audio: Optional[bytes], n_frames: int, fps: int,
 
 
 def write_video(frames: Iterator[np.ndarray], out_path: Path,
-                fps: int = None, audio: Optional[bytes] = None,
+                fps: int = None, audio: bytes | None = None,
                 rate: int = None, silent: bool = True,
                 snes_palette: bool = False) -> Path:
     """Pipe frames (+ mono PCM16 audio) to ffmpeg -> MP4 with A/V sync bound.

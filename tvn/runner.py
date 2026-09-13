@@ -12,13 +12,13 @@ Pipeline (wires world-state -> content -> render -> record, per RESEARCH_LIVING)
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator, Optional
 
 import numpy as np
 
-from . import programming, gary, renderer, output, audio
+from . import audio, gary, output, programming, renderer
 from .broadcast import BroadcastSegment
 from .config import SETTINGS
 from .world import open_world
@@ -28,7 +28,7 @@ def make_world():
     return open_world()
 
 
-def segment_frames(seg, fps: int = None, seconds: Optional[float] = None,
+def segment_frames(seg, fps: int = None, seconds: float | None = None,
                    renderer_=None) -> Iterator[np.ndarray]:
     """Yield renderer frames for a segment, cycled to fill `seconds` (or one pass).
 
@@ -56,7 +56,7 @@ def segment_audio(seg, seconds: float, fmt: str = "", variant: int = 0) -> bytes
     return output.raw_audio_bytes(audio.mixer.track_for(fmt or seg.fmt, seconds, variant))
 
 
-def run_once(seconds: float = 30.0, out: Optional[Path] = None,
+def run_once(seconds: float = 30.0, out: Path | None = None,
              world=None, gary_=None) -> Path:
     """Record a single coherent broadcast segment (current grid slot) to MP4."""
     world = world or make_world()
@@ -75,12 +75,12 @@ def run_once(seconds: float = 30.0, out: Optional[Path] = None,
     return out
 
 
-_last_tick_ts: Optional[float] = None
+_last_tick_ts: float | None = None
 # per-airing seed counter (GAP-3): every pass mints a fresh seed so the next
 # chunk is NOT byte-identical to the last, even in the same grid slot.
 _pass_counter = 0
 # last aired dialogue signature (guards CONSECUTIVE chunks from byte-identity)
-_last_beats: Optional[tuple[str, ...]] = None
+_last_beats: tuple[str, ...] | None = None
 
 
 def _next_seed() -> int:
@@ -124,7 +124,7 @@ def _record_cycle(world, g, out_dir: Path, seconds: float = 12.0) -> Path:
     return out
 
 
-def run_forever(stream: bool = False, record_dir: Optional[Path] = None,
+def run_forever(stream: bool = False, record_dir: Path | None = None,
                 world=None, seconds: float = 12.0):
     """24/7 loop: air one slot's segment, advance the world, repeat.
 

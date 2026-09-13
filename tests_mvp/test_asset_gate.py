@@ -10,8 +10,8 @@ See research_findings_visual.md sections 3.2 (duplicate backgrounds) and
 import hashlib
 import json
 
-import numpy as np
 from PIL import Image
+
 from tvn import assets
 
 

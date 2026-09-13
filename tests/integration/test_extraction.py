@@ -6,6 +6,7 @@ Uses placeholder data for Phase 2 demo.
 
 import json
 from pathlib import Path
+
 from app.config import CONFIG
 from app.extractors.top_50_snes_games import TOP_50_SNES_GAMES
 from app.extractors.validate_assets import validate_manifests

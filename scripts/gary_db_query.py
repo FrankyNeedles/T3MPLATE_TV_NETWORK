@@ -5,9 +5,10 @@ Gary DB Query Upgrade – Live Lore Gossip.
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from app.gary import GaryPD
-from app.living_world import living_world, LoreEntry
+from app.living_world import LoreEntry, living_world
 
 # Gary with DB lore
 gary = GaryPD()

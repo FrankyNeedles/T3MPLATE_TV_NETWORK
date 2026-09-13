@@ -13,7 +13,6 @@ import struct
 from pathlib import Path
 
 import pytest
-
 from extractors.snes_rom_hacker import (
     AuthenticAssetExtractor,
     SNESPalette,

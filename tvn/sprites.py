@@ -9,8 +9,8 @@ is catalogued with `method:"procedural_curated"`.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import numpy as np
+
 
 # --- SNES 15-bit colour table (5-bit channels, "bits 0-4 R, 5-9 G, 10-14 B") --
 # Stored as 8-bit RGB produced from 15-bit values -> authentic SNES gamut.
@@ -92,7 +92,7 @@ class Canvas:
                 if name:
                     self.px(x0 + dx, y0 + dy, name)
 
-    def blit(self, other: "Canvas", x0, y0):
+    def blit(self, other: Canvas, x0, y0):
         sy = max(0, -y0); sx = max(0, -x0)
         for y in range(sy, other.h):
             for x in range(sx, other.w):
@@ -259,15 +259,15 @@ class SpriteBank:
 
     def __init__(self, scale: int = 4):
         self.scale = scale
-        self._cache: dict[tuple[str, str], "Canvas"] = {}
-        self._real_cache: dict[tuple[str, str], "Image.Image"] = {}
+        self._cache: dict[tuple[str, str], Canvas] = {}
+        self._real_cache: dict[tuple[str, str], Image.Image] = {}
 
     # -- real curated frame resolution -------------------------------------
-    def _movements_dir(self) -> "Path":
+    def _movements_dir(self) -> Path:
         from .config import SETTINGS
         return SETTINGS.root / "assets" / "movements"
 
-    def real_frame(self, kind: str, pose: str) -> "Image.Image":
+    def real_frame(self, kind: str, pose: str) -> Image.Image:
         """Return a mounted real SMW frame as an RGBA Image, or None."""
         key = (kind, pose)
         if key in self._real_cache:
@@ -287,7 +287,7 @@ class SpriteBank:
     def is_real(self, kind: str, pose: str) -> bool:
         return self.real_frame(kind, pose) is not None
 
-    def frame(self, kind: str, pose: str) -> "Canvas":
+    def frame(self, kind: str, pose: str) -> Canvas:
         key = (kind, pose)
         if key not in self._cache:
             pose = pose if pose in POSE_KEYS else "idle"

@@ -3,15 +3,16 @@ Tests for 90s TV Programming Engine.
 """
 
 from datetime import datetime
+
 from app.program_90s import (
-    TVProgrammingEngine,
     Daypart,
     DialogueBubble,
     MusicCue,
     SFXCue,
-    create_talking_bubble,
+    TVProgrammingEngine,
     create_music_cue,
     create_stinger_sfx,
+    create_talking_bubble,
 )
 
 

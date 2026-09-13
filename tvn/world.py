@@ -17,22 +17,33 @@ via `caused_by_event_id` -- canon discipline: no slot-machine decisions.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
 
 from sqlalchemy import (
-    String, Integer, Float, Boolean, DateTime, ForeignKey, Text, JSON, or_, and_,
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    and_,
     create_engine,
+    or_,
 )
 from sqlalchemy import inspect as _inspect
 from sqlalchemy import text as _text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
-    DeclarativeBase, sessionmaker, relationship, Mapped, mapped_column,
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    sessionmaker,
 )
 
 from . import content
 from .config import SETTINGS
-
 
 # Stage 4 (BALANCE THE WORLD, BUG-2): mean-reverting drift, not a one-way
 # ratchet. A co-hosting pair is pulled toward a SIGNED baseline (friends settle
@@ -166,16 +177,16 @@ class TimelineEvent(Base):
     reason: Mapped[str] = mapped_column(Text, default="")
     outcome: Mapped[str] = mapped_column(String(50), default="")
     date: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    character_id: Mapped[Optional[int]] = mapped_column(
+    character_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("characters.id"), nullable=True)
     # consequence-chaining (Stage 3): every mutation points at the world event
     # that CAUSED it, so the log is a causal DAG, not a flat list.
-    caused_by_event_id: Mapped[Optional[int]] = mapped_column(
+    caused_by_event_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("timeline_events.id"), nullable=True)
 
 
 class LivingWorld:
-    def __init__(self, db_url: Optional[str] = None):
+    def __init__(self, db_url: str | None = None):
         if db_url is None:
             SETTINGS.lore_dir.mkdir(parents=True, exist_ok=True)
             db_url = f"sqlite:///{SETTINGS.db_path}"
@@ -414,7 +425,7 @@ class LivingWorld:
         return "\n".join(lines)
 
     def _note(self, event, reason="", outcome="", character=None,
-              caused_by_event_id: Optional[int] = None) -> Optional[int]:
+              caused_by_event_id: int | None = None) -> int | None:
         ev = TimelineEvent(event=event[:300], reason=reason, outcome=outcome,
                            caused_by_event_id=caused_by_event_id)
         self.session.add(ev)
@@ -458,10 +469,10 @@ class LivingWorld:
         pull = _POP_K * (_POP_BASELINE - popularity) + (1.5 if direc > 0 else -1.5)
         return int(round(pull))
 
-    def on_air(self, cast: list[str], show: Optional[str] = None,
+    def on_air(self, cast: list[str], show: str | None = None,
                tension: int = 0, outcome: str = "aired",
-               caused_by_event_id: Optional[int] = None,
-               genre: Optional[str] = None):
+               caused_by_event_id: int | None = None,
+               genre: str | None = None):
         """Record that a beat/show aired; apply CAUSAL relationship/career deltas.
 
         Co-hosts who work together gently drift according to how the segment went
@@ -598,5 +609,5 @@ class LivingWorld:
         }
 
 
-def open_world(db_url: Optional[str] = None) -> LivingWorld:
+def open_world(db_url: str | None = None) -> LivingWorld:
     return LivingWorld(db_url)

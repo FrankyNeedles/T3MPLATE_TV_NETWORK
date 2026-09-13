@@ -13,11 +13,12 @@ walk cross drags the cast centroid dramatically rightward over the beat.
 """
 import sys
 from pathlib import Path
+
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tvn import gary, programming, renderer, broadcast
+from tvn import broadcast, gary, programming, renderer
 from tvn.world import LivingWorld
 
 

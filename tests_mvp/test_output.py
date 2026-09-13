@@ -1,6 +1,7 @@
 """Audio + ffmpeg output tests (green gate: real playable broadcast)."""
 import shutil
 import subprocess
+
 import numpy as np
 import pytest
 
@@ -19,7 +20,6 @@ def test_synth_bed_is_real_sound():
 def test_ensure_bed_writes_wav(tmp_path):
     import tvn.audio as a
     wav = a.write_wav(tmp_path / "t.wav", audio.synth_bed("bumper", 1.0))
-    from pathlib import Path
     assert (tmp_path / "t.wav").exists()
     assert (tmp_path / "t.wav").stat().st_size > 1000
 
@@ -64,7 +64,6 @@ def test_run_once_produces_playable_broadcast(tmp_path):
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg not on PATH")
 def test_output_wireframes_to_mp4(tmp_path):
     """write_video pipes frames + audio and yields a valid mp4."""
-    import tvn.audio as a
     rng = np.random.default_rng(0)
     frames = (rng.integers(0, 255, (448, 512, 3), dtype=np.uint8) for _ in range(24))
     aud = output.raw_audio_bytes(audio.synth_bed("bumper", 1.0))

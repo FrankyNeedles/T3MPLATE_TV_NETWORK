@@ -233,7 +233,7 @@ class TestLivingWorldBroadcast:
 
     def test_show_history_lifecycle(self):
         """FULL_VISION.md: Show lifecycle - Pitch → Pilot → Series → Syndication → Cancellation"""
-        from app.living_world import Show, Session
+        from app.living_world import Session, Show
 
         session = Session()
         shows = session.query(Show).all()

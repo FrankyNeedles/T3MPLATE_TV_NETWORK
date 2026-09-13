@@ -5,14 +5,14 @@ Unit and integration tests for persistence and simulation.
 """
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from app.characters import load_characters_from_assets
 from app.living_world import (
     LivingWorld,
-    generate_morning_report,
     generate_gossip,
+    generate_morning_report,
 )
-from app.characters import load_characters_from_assets
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 @pytest.fixture

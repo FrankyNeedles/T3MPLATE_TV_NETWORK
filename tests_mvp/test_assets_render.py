@@ -1,10 +1,11 @@
 """Asset kit & headless renderer tests (substance-over-slop gates)."""
 import json
+
 import numpy as np
 import pytest
 
-from tvn import sprites, assets, renderer, broadcast, content
-from tvn.animation import library, BASE_MOTIONS
+from tvn import assets, broadcast, renderer, sprites
+from tvn.animation import BASE_MOTIONS, library
 
 
 @pytest.mark.parametrize("kind", list(sprites.CAST.keys()))
